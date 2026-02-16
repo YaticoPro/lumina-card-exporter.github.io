@@ -1,9 +1,10 @@
 import os
+import re
 
 from PIL import Image, ImageDraw, ImageFont
 import pickle
 
-from CardImporter import Card
+from CardImporter import Card, Cost
 
 
 def from_pickle(pickle_file) -> Card:
@@ -34,16 +35,6 @@ class ImageCardImporter:
     image_elements_directory = elements_directory + "image_elements/"
     police_elements_directory = elements_directory + "fonts/"
 
-    # Charger fond image
-    # Ajouter chacun des éléments
-    ## Titre
-    ## Coût
-    ## Artwork
-    ## Classe et Peuple
-    ## Texte
-    ## Atk / Def
-    ## Rapidité
-
     def __init__(self):
         self.reset_base()
 
@@ -57,17 +48,17 @@ class ImageCardImporter:
         self.title_font_size = 60
         self.title_font_filename = "Calvera Personal Use Only.ttf"
 
-        self.base_font_size = 20
-        self.base_font_filename = "Calvera Personal Use Only.ttf"
+        self.version_font_size = 50
+        self.version_font_filename = "Montserrat-Regular.ttf"
 
         self.effect_font_size = 45
         self.effect_font_filename = "Montserrat-Regular.ttf"
-        self.effect_bold_effect_filename = "Montserrat-Bold.ttf"
+        self.effect_bold_effect_filename = "Montserrat-Extrabold.ttf"
         self.effect_height = 320
 
         self.image_height = 450
 
-        self.cost_gap = 80
+        self.cost_gap = 120
         self.cost_image_size = int(self.cost_gap * 5 / 8)
 
         self.h_limit_margin = self.width - 2 * self.h_margin
@@ -75,6 +66,8 @@ class ImageCardImporter:
 
     def transform_card(self, card_path=None):
         card = from_pickle(self.cards_directory + card_path)
+        if not card.title:
+            return
 
         # Frame
         xys = (0, 0), (self.width - 5, self.height - 2)
@@ -89,16 +82,14 @@ class ImageCardImporter:
         xys = (self.h_margin, base_pos), int_tuple((self.h_limit_margin, base_pos + self.image_height))
         self.draw.rectangle(xys, outline="black", fill="white")
         artwork = Image.open(f"{self.image_elements_directory}no_artwork.png") # TODO change to artwork
-        artwork = artwork.resize((xys[1][0]-xys[0][0]-10, xys[1][1]-xys[0][1]-10))
+        artwork = artwork.resize((xys[1][0]-xys[0][0]-10, xys[1][1]-xys[0][1]-10)).convert("RGBA")
         self.base.paste(artwork, (xys[0][0]+5, xys[0][1]+5))
 
-        # Nation + Class
+        # Type + Class
         base_pos = xys[1][1] + self.v_margin
         xys = (self.h_margin, base_pos), int_tuple((self.h_limit_margin, base_pos + self.title_font_size * 4 / 3))
-        if card.card_type == "Unité":
-            self.add_text_in_rectangle(f"{card.card_class}  -  {card.nation}", self.title_font_size, xys)
-        elif card.card_type == "Structure":
-            self.add_text_in_rectangle(f"{card.nation}", self.title_font_size, xys)
+        if card.card_class != "":
+            self.add_text_in_rectangle(f"{card.card_type}  -  {card.card_class}", self.title_font_size, xys)
         else:
             self.add_text_in_rectangle(f"{card.card_type}", self.title_font_size, xys)
 
@@ -106,14 +97,13 @@ class ImageCardImporter:
         base_pos = xys[1][1] + self.v_margin
         xys = (self.h_margin, base_pos), (self.h_limit_margin, base_pos + self.effect_height)
         self.draw.rectangle(xys, outline="black", fill="white")
-        font = ImageFont.truetype(self.police_elements_directory + self.effect_font_filename, self.effect_font_size)
-        bold_font = ImageFont.truetype(self.police_elements_directory + self.effect_bold_effect_filename, self.effect_font_size)
         middle = int_tuple(((xys[0][0]+xys[1][0])/2, (xys[0][1]+xys[1][1])/2))
         max_width = xys[1][0] - xys[0][0] - 2 * self.h_margin
-        self.draw.multiline_text(middle, self.wrap_text(card.effect, font, bold_font, max_width), font=font, fill="black", anchor="mm", align="center")
+        # self.draw.multiline_text(middle, "\n".join(self.wrap_text(card.effect, font, bold_font, max_width)[0]), font=font, fill="blue", anchor="mm", align="center")
+        self.custom_multiline_text(card.effect, middle, self.effect_font_filename, self.effect_bold_effect_filename, max_width, fill="black")
 
         # Atk / Def
-        base_pos = xys[1][1] - 4 * self.v_margin
+        base_pos = xys[1][1] - 2.5 * self.v_margin
         xys = (480, base_pos), (730, base_pos + self.title_font_size * 4 / 3)
         if card.card_type == "Unité":
             self.add_text_in_rectangle(f"{card.attack} / {card.defense}", self.title_font_size, xys)
@@ -127,34 +117,85 @@ class ImageCardImporter:
             xys_element = (35 + self.cost_image_size + i*self.cost_gap, 115), (35 + self.cost_image_size + i*self.cost_gap+30, 115 + self.cost_image_size)
             self.add_text_in_rectangle(f"{value}", self.effect_font_size, xys_element, margin = False)
 
+        # Nation
+        if card.nation != "":
+            xys_nation = ((480, 115),(730, 115 + self.title_font_size * 4 / 3))
+            self.add_text_in_rectangle(f"{card.nation}", self.title_font_size, xys_nation)
+
         # Swiftness
         if card.swiftness == "Rapide":
             swiftness_image = Image.open(f"{self.image_elements_directory}swiftness.png").resize((130, 182))
             swiftness_image = swiftness_image.convert("RGBA")
             self.base.paste(swiftness_image, (570, 430), mask=swiftness_image)
 
-
         # Extension / Version
-        base_pos = xys[1][1] - self.v_margin / 2
-        xys = (10, base_pos), int_tuple((100, base_pos + self.base_font_size * 4 / 3))
-        self.add_text_in_rectangle(f"{card.extension} - v{card.version}", self.base_font_size, xys)
+        base_pos = xys[1][1] - self.v_margin / 2 - 1.5 * self.v_margin
+        xys = (10, base_pos), int_tuple((100, self.height - 2))
+        self.add_text_in_rectangle(f"{card.extension} - v{card.version}", self.version_font_size, xys, font=self.version_font_filename, margin=False)
 
-
+        # Save
         self.base.save(f"{self.image_directory}{card.id}.png")
 
-    def add_text_in_rectangle(self, text, text_font_size, xys, rectangle=True, margin=True):
+    def custom_multiline_text(self, text, position, font_filename, bold_font_filename, max_width, fill="black"):
+        if text == "":
+            return
+
+        font = ImageFont.truetype(self.police_elements_directory + font_filename, self.effect_font_size)
+        bold_font = ImageFont.truetype(self.police_elements_directory + bold_font_filename, self.effect_font_size)
+
+        lines, widths = self.wrap_text(text, font, bold_font, max_width)
+        max_lines = 5
+        if len(lines) > max_lines:
+            r = len(lines) / max_lines
+            font_size = int(self.effect_font_size / r)
+            font = ImageFont.truetype(self.police_elements_directory + font_filename, font_size)
+            bold_font = ImageFont.truetype(self.police_elements_directory + bold_font_filename, font_size)
+            lines, widths = self.wrap_text(text, font, bold_font, max_width)
+
+        x, y = position
+        total_height = 0
+
+        for line in lines:
+            words = line.split()
+            line_height = max(font.getbbox(word)[3] for word in words)
+            total_height += line_height
+
+        y_start = y - total_height // 2
+        if len(lines) > 4:
+            y_start -= line_height // 3
+
+        for line, width in zip(lines, widths):
+            words = line.split()
+            current_x = x - width // 2
+            line_height = max(font.getbbox(word)[3] for word in words)
+
+            for word in words:
+                font_to_use = font
+                if word in effect_keywords or word in effect_keywords_next or (words.index(word) > 0 and words[words.index(word)-1] in effect_keywords_next):
+                    font_to_use = bold_font
+
+                bbox = font_to_use.getbbox(word)
+                word_width = bbox[2] - bbox[0]
+                self.draw.text((current_x, y_start), word, font=font_to_use, fill=fill)
+                current_x += word_width + font_to_use.getbbox(" ")[2]
+
+            y_start += line_height
+
+    def add_text_in_rectangle(self, text, text_font_size, xys, font=None, rectangle=True, margin=True):
         if rectangle:
             self.draw.rectangle(xys, outline="black", fill="white")
-        title_font = ImageFont.truetype(self.police_elements_directory + self.title_font_filename, text_font_size)
+        if font is None:
+            font = self.title_font_filename
+        title_font = ImageFont.truetype(self.police_elements_directory + font, text_font_size)
         text_length = self.draw.textlength(text, title_font, font_size=text_font_size)
         max_width = xys[1][0] - xys[0][0]
         max_width -= 2 * self.h_margin if margin else 0
         if text_length > max_width:
             r = text_length / max_width
             text_font_size = text_font_size / r
-            title_font = ImageFont.truetype(self.police_elements_directory + self.title_font_filename, text_font_size)
+            title_font = ImageFont.truetype(self.police_elements_directory + font, text_font_size)
             text_length = self.draw.textlength(text, title_font, font_size=text_font_size)
-        pxpy = (xys[0][0]+xys[1][0])/2 - text_length/2, (xys[0][1]+xys[1][1])/2 - text_font_size * 4 / 6
+        pxpy = (xys[0][0] + xys[1][0]) / 2 - text_length / 2, (xys[0][1] + xys[1][1]) / 2 - text_font_size * 4 / 6
         self.draw.text(pxpy, font=title_font, text=text, fill="black")
 
     def draw_text_in_font(self, coords: tuple[int, int],
@@ -167,41 +208,44 @@ class ImageCardImporter:
 
     def wrap_text(self, text, font, bold_font, max_width):
         words = text.split()
-        lines = [] # Holds each line in the text box
-        current_line = [] # Holds each word in the current line under evaluation.
-
+        lines = []
+        current_line = []
+        widths = []
+        width = 0
         for i in range(len(words)):
             word = words[i]
             font_to_use = font
             if word in effect_keywords or i > 1 and words[i-1] in effect_keywords_next:
                 font_to_use = bold_font
-            # Check the width of the current line with the new word added
             test_line = ' '.join(current_line + [word])
-            width = self.draw.textlength(test_line, font=font_to_use)
+            last_width, width = width, self.draw.textlength(test_line, font=font_to_use)
             if width <= max_width:
                 current_line.append(word)
             else:
-                # If the line is too wide, finalize the current line and start a new one
                 lines.append(' '.join(current_line))
+                width = self.draw.textlength(word, font=font_to_use)
+                widths.append(last_width)
                 current_line = [word]
 
         # Add the last line
         if current_line:
             lines.append(' '.join(current_line))
+            widths.append(width)
 
-        return "\n".join(lines)
+        return lines, widths
 
     def transform_cards(self, directory_path, limit=None):
+        regex_file_format = re.compile(r"^([0-9a-z]+)\.pickle$")
         cards_paths = os.listdir(directory_path)
         i = 0
         for card_path in cards_paths:
-            self.transform_card(card_path)
-            i += 1
-            if limit is not None and i >= limit:
-                break
-            self.reset_base()
-
+            if regex_file_format.match(card_path):
+                self.transform_card(card_path)
+                i += 1
+                if limit is not None and i >= limit:
+                    break
+                self.reset_base()
 
 if __name__ == "__main__":
     ici= ImageCardImporter()
-    ici.transform_cards(ici.cards_directory, limit=5)
+    ici.transform_cards(ici.cards_directory)
