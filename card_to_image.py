@@ -24,9 +24,18 @@ str_to_element = {
     "neutral": "neutral"
 }
 
-effect_keywords = ["Rage", "Dissipation", "Impulsion", "Camouflage", "Furtif", "Réactive", "Aura",
-                   "Silence", "Interception", "Hymne", "Furie"]
-effect_keywords_next = ["Croissance", "Gel", "Soin"]
+str_to_identity = {
+    "Eclair": "lightning",
+    "Feu": "fire",
+    "Eau": "water",
+    "Glace": "ice",
+    "Nature": "nature",
+    "Ténèbres": "darkness"
+}
+
+effect_keywords = ["Rage", "Dissipation", "Impulsion", "Camouflage", "Furtif", "Réactive", "Aura", "Interception",
+                   "Hymne", "Furie"]
+effect_keywords_next = ["Croissance", "Gel", "Soin", "Silence"]
 
 class ImageCardImporter:
     image_directory = "./images/"
@@ -58,10 +67,10 @@ class ImageCardImporter:
 
         self.image_height = 450
 
-        self.cost_gap = 120
+        self.cost_gap = 92
         self.cost_image_size = int(self.cost_gap * 5 / 8)
 
-        self.h_limit_margin = self.width - 2 * self.h_margin
+        self.h_limit_margin = self.width - self.h_margin
         self.margin_width = self.width - 2 * self.h_margin
 
     def transform_card(self, card_path=None):
@@ -74,16 +83,29 @@ class ImageCardImporter:
         self.draw.rectangle(xys, outline="black", fill="white", width=3)
 
         # Title
-        xys = (self.h_margin, self.v_margin), int_tuple((self.margin_width, self.v_margin + self.title_font_size * 4 / 3))
+        xys = (self.h_margin, self.v_margin), int_tuple((self.h_limit_margin, self.v_margin + self.title_font_size * 4 / 3))
         self.add_text_in_rectangle(f"{card.title}", self.title_font_size, xys)
 
-        # Artwork
+        # Artwork / Identity
         base_pos = xys[1][1] + self.v_margin
         xys = (self.h_margin, base_pos), int_tuple((self.h_limit_margin, base_pos + self.image_height))
         self.draw.rectangle(xys, outline="black", fill="white")
-        artwork = Image.open(f"{self.image_elements_directory}no_artwork.png") # TODO change to artwork
-        artwork = artwork.resize((xys[1][0]-xys[0][0]-10, xys[1][1]-xys[0][1]-10)).convert("RGBA")
-        self.base.paste(artwork, (xys[0][0]+5, xys[0][1]+5))
+
+        resize_dim = (xys[1][0]-xys[0][0]-10, xys[1][1]-xys[0][1]-10)
+        nb_identities = len(card.identity)
+        resize_dim_multi = int_tuple((resize_dim[0] / nb_identities, resize_dim[1] / nb_identities))
+
+        if nb_identities == 0:
+            artwork = Image.open(f"{self.image_elements_directory}no_artwork.png")
+            artwork = artwork.crop((78, 0, 422, 500))
+            artwork = artwork.resize(resize_dim).convert("RGBA")
+            self.base.paste(artwork, (xys[0][0]+5, xys[0][1]+5), mask=artwork)
+        else:
+            for i, identity in enumerate(card.identity):
+                artwork = Image.open(f"{self.image_elements_directory}{str_to_identity[identity]}.png")
+                artwork = artwork.crop((0, 78, 500, 404))
+                artwork = artwork.resize(resize_dim_multi).convert("RGBA")
+                self.base.paste(artwork, int_tuple((xys[0][0]+5 + resize_dim_multi[0] * i, xys[0][1] + (nb_identities>1) * resize_dim_multi[1] // nb_identities )), mask=artwork)
 
         # Type + Class
         base_pos = xys[1][1] + self.v_margin
@@ -106,20 +128,23 @@ class ImageCardImporter:
         base_pos = xys[1][1] - 2.5 * self.v_margin
         xys = (480, base_pos), (730, base_pos + self.title_font_size * 4 / 3)
         if card.card_type == "Unité":
-            self.add_text_in_rectangle(f"{card.attack} / {card.defense}", self.title_font_size, xys)
+            self.add_text_in_rectangle(f"{card.attack}  /  {card.defense}", self.title_font_size, xys)
 
         # Cost
         for i, cost in enumerate(card.cost):
             element, value = cost
             element_image = Image.open(self.image_elements_directory + str_to_element[element] + ".png")
+            element_image = element_image.crop((75,75,425,425))
             element_image = element_image.resize((self.cost_image_size, self.cost_image_size)).convert("RGBA")
             self.base.paste(element_image, (35 + i*self.cost_gap, 115), mask=element_image)
-            xys_element = (35 + self.cost_image_size + i*self.cost_gap, 115), (35 + self.cost_image_size + i*self.cost_gap+30, 115 + self.cost_image_size)
-            self.add_text_in_rectangle(f"{value}", self.effect_font_size, xys_element, margin = False)
+            xys_element = ((30 + self.cost_image_size + i*self.cost_gap, 115),
+                           (30 + self.cost_image_size + i*self.cost_gap + 30, 115 + self.cost_image_size))
+            self.add_text_in_rectangle(f"{value}", self.effect_font_size, xys_element, margin = False, rectangle=False)
 
         # Nation
+        base_pos = 180
         if card.nation != "":
-            xys_nation = ((480, 115),(730, 115 + self.title_font_size * 4 / 3))
+            xys_nation = ((480, base_pos),(730, base_pos + self.title_font_size * 4 / 3))
             self.add_text_in_rectangle(f"{card.nation}", self.title_font_size, xys_nation)
 
         # Swiftness
@@ -129,9 +154,9 @@ class ImageCardImporter:
             self.base.paste(swiftness_image, (570, 430), mask=swiftness_image)
 
         # Extension / Version
-        base_pos = xys[1][1] - self.v_margin / 2 - 1.5 * self.v_margin
-        xys = (10, base_pos), int_tuple((100, self.height - 2))
-        self.add_text_in_rectangle(f"{card.extension} - v{card.version}", self.version_font_size, xys, font=self.version_font_filename, margin=False)
+        base_pos = xys[1][1] - self.v_margin / 2 - 2 * self.v_margin
+        xys = (10, base_pos), int_tuple((100, self.height - 10))
+        self.add_text_in_rectangle(f"{card.extension} - v{card.version}", self.version_font_size, xys, font=self.version_font_filename, margin=False, rectangle=False)
 
         # Save
         self.base.save(f"{self.image_directory}{card.id}.png")
@@ -146,7 +171,7 @@ class ImageCardImporter:
         lines, widths = self.wrap_text(text, font, bold_font, max_width)
         max_lines = 5
         if len(lines) > max_lines:
-            r = len(lines) / max_lines
+            r = len(lines) / (max_lines + 1)
             font_size = int(self.effect_font_size / r)
             font = ImageFont.truetype(self.police_elements_directory + font_filename, font_size)
             bold_font = ImageFont.truetype(self.police_elements_directory + bold_font_filename, font_size)

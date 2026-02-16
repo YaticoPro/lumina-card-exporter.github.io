@@ -43,7 +43,8 @@ class CardImporter:
                'Effet':'effect', 'Peuple':'nation', 'Classe':'card_class', 'ATK':'attack', 'DEF':'defense',
                'Version':'version', 'Extension':'extension'}
     option_int = lambda x: int(x) if x.isdigit() else None
-    mapping_transformer = {'attack': option_int, 'defense': option_int, 'cost':string_to_cost}
+    str_splitter = lambda x : x.split(", ")
+    mapping_transformer = {'attack': option_int, 'defense': option_int, 'cost':string_to_cost, 'identity': str_splitter}
 
     def parse(self, csv_file, mapping=None):
         if mapping is None:
@@ -53,9 +54,11 @@ class CardImporter:
             header = csv_reader.__next__()
             for row in csv_reader:
                 new_card = Card(header, row, mapping, self.mapping_transformer)
-                with open(f"./cards/{new_card.id}.pickle", "wb") as f:
-                    pickle.dump(new_card, f)
+                if new_card.id:
+                    with open(f"./cards/{new_card.id}.pickle", "wb") as f:
+                        pickle.dump(new_card, f)
 
 if __name__ == '__main__':
     ci = CardImporter()
     ci.parse("./csv/lumina_0_1.csv")
+    # ci.parse("./csv/test.csv")
