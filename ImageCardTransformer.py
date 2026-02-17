@@ -37,7 +37,7 @@ effect_keywords = ["Rage", "Dissipation", "Impulsion", "Camouflage", "Furtif", "
                    "Hymne", "Furie"]
 effect_keywords_next = ["Croissance", "Gel", "Soin", "Silence"]
 
-class ImageCardImporter:
+class ImageCardTransformer:
     image_directory = "./images/"
     cards_directory = "./cards/"
     elements_directory = "./card_elements/"
@@ -73,7 +73,7 @@ class ImageCardImporter:
         self.h_limit_margin = self.width - self.h_margin
         self.margin_width = self.width - 2 * self.h_margin
 
-    def transform_card(self, card_path=None):
+    def transform_card(self, card_path):
         card = from_pickle(self.cards_directory + card_path)
         if not card.title:
             return
@@ -105,6 +105,7 @@ class ImageCardImporter:
                 artwork = Image.open(f"{self.image_elements_directory}{str_to_identity[identity]}.png")
                 artwork = artwork.crop((0, 78, 500, 404))
                 artwork = artwork.resize(resize_dim_multi).convert("RGBA")
+                # artwork
                 self.base.paste(artwork, int_tuple((xys[0][0]+5 + resize_dim_multi[0] * i, xys[0][1] + (nb_identities>1) * resize_dim_multi[1] // nb_identities )), mask=artwork)
 
         # Type + Class
@@ -125,7 +126,7 @@ class ImageCardImporter:
         self.custom_multiline_text(card.effect, middle, self.effect_font_filename, self.effect_bold_effect_filename, max_width, fill="black")
 
         # Atk / Def
-        base_pos = xys[1][1] - 2.5 * self.v_margin
+        base_pos = xys[1][1] - 2.8 * self.v_margin
         xys = (480, base_pos), (730, base_pos + self.title_font_size * 4 / 3)
         if card.card_type == "Unité":
             self.add_text_in_rectangle(f"{card.attack}  /  {card.defense}", self.title_font_size, xys)
@@ -180,6 +181,7 @@ class ImageCardImporter:
         x, y = position
         total_height = 0
 
+        line_height = 0
         for line in lines:
             words = line.split()
             line_height = max(font.getbbox(word)[3] for word in words)
@@ -259,7 +261,9 @@ class ImageCardImporter:
 
         return lines, widths
 
-    def transform_cards(self, directory_path, limit=None):
+    def transform_cards(self, directory_path=None, limit=None):
+        if directory_path is None:
+            directory_path = self.cards_directory
         regex_file_format = re.compile(r"^([0-9a-z]+)\.pickle$")
         cards_paths = os.listdir(directory_path)
         i = 0
@@ -271,6 +275,11 @@ class ImageCardImporter:
                     break
                 self.reset_base()
 
+    def delete_images(self):
+        for file in os.listdir(f"{self.image_directory}"):
+            if file.endswith(".png"):
+                os.remove(f"{self.image_directory}{file}")
+
 if __name__ == "__main__":
-    ici= ImageCardImporter()
+    ici= ImageCardTransformer()
     ici.transform_cards(ici.cards_directory)
