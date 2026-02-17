@@ -105,8 +105,8 @@ class ImageCardTransformer:
                 artwork = Image.open(f"{self.image_elements_directory}{str_to_identity[identity]}.png")
                 artwork = artwork.crop((0, 78, 500, 404))
                 artwork = artwork.resize(resize_dim_multi).convert("RGBA")
-                # artwork
-                self.base.paste(artwork, int_tuple((xys[0][0]+5 + resize_dim_multi[0] * i, xys[0][1] + (nb_identities>1) * resize_dim_multi[1] // nb_identities )), mask=artwork)
+                artwork = artwork.point(lambda p: 120 if p > 120 else 0)
+                self.base.paste(artwork, int_tuple((xys[0][0]+5 + resize_dim_multi[0] * i, (xys[0][1]+xys[1][1])/2 - resize_dim_multi[1] / 2 )), mask=artwork)
 
         # Type + Class
         base_pos = xys[1][1] + self.v_margin
@@ -172,7 +172,7 @@ class ImageCardTransformer:
         lines, widths = self.wrap_text(text, font, bold_font, max_width)
         max_lines = 5
         if len(lines) > max_lines:
-            r = len(lines) / (max_lines + 1)
+            r = len(lines) / max_lines
             font_size = int(self.effect_font_size / r)
             font = ImageFont.truetype(self.police_elements_directory + font_filename, font_size)
             bold_font = ImageFont.truetype(self.police_elements_directory + bold_font_filename, font_size)
