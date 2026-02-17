@@ -105,7 +105,7 @@ class ImageCardTransformer:
                 artwork = Image.open(f"{self.image_elements_directory}{str_to_identity[identity]}.png")
                 artwork = artwork.crop((0, 78, 500, 404))
                 artwork = artwork.resize(resize_dim_multi).convert("RGBA")
-                artwork = artwork.point(lambda p: 120 if p > 120 else 0)
+                artwork = artwork.point(lambda p: 40 if p > 150 else 0)
                 self.base.paste(artwork, int_tuple((xys[0][0]+5 + resize_dim_multi[0] * i, (xys[0][1]+xys[1][1])/2 - resize_dim_multi[1] / 2 )), mask=artwork)
 
         # Type + Class
@@ -122,7 +122,6 @@ class ImageCardTransformer:
         self.draw.rectangle(xys, outline="black", fill="white")
         middle = int_tuple(((xys[0][0]+xys[1][0])/2, (xys[0][1]+xys[1][1])/2))
         max_width = xys[1][0] - xys[0][0] - 2 * self.h_margin
-        # self.draw.multiline_text(middle, "\n".join(self.wrap_text(card.effect, font, bold_font, max_width)[0]), font=font, fill="blue", anchor="mm", align="center")
         self.custom_multiline_text(card.effect, middle, self.effect_font_filename, self.effect_bold_effect_filename, max_width, fill="black")
 
         # Atk / Def
@@ -152,7 +151,7 @@ class ImageCardTransformer:
         if card.swiftness == "Rapide":
             swiftness_image = Image.open(f"{self.image_elements_directory}swiftness.png").resize((130, 182))
             swiftness_image = swiftness_image.convert("RGBA")
-            self.base.paste(swiftness_image, (570, 430), mask=swiftness_image)
+            self.base.paste(swiftness_image, (595, 420), mask=swiftness_image)
 
         # Extension / Version
         base_pos = xys[1][1] - self.v_margin / 2 - 2 * self.v_margin
@@ -191,14 +190,18 @@ class ImageCardTransformer:
         if len(lines) > 4:
             y_start -= line_height // 3
 
+        word_to_identify_effect = None
         for line, width in zip(lines, widths):
             words = line.split()
             current_x = x - width // 2
             line_height = max(font.getbbox(word)[3] for word in words)
 
             for word in words:
+                last_word, word_to_identify_effect = word_to_identify_effect, word.strip(",:.")
                 font_to_use = font
-                if word in effect_keywords or word in effect_keywords_next or (words.index(word) > 0 and words[words.index(word)-1] in effect_keywords_next):
+                if (word_to_identify_effect in effect_keywords
+                        or word_to_identify_effect in effect_keywords_next
+                        or last_word in effect_keywords_next and word.isdigit()):
                     font_to_use = bold_font
 
                 bbox = font_to_use.getbbox(word)
@@ -239,10 +242,14 @@ class ImageCardTransformer:
         current_line = []
         widths = []
         width = 0
+        word_to_identify_effect = None
         for i in range(len(words)):
             word = words[i]
+            last_word, word_to_identify_effect = word_to_identify_effect, word.strip(",:.")
             font_to_use = font
-            if word in effect_keywords or i > 1 and words[i-1] in effect_keywords_next:
+            if (word_to_identify_effect in effect_keywords
+                    or word_to_identify_effect in effect_keywords_next
+                    or last_word in effect_keywords_next and word.isdigit()):
                 font_to_use = bold_font
             test_line = ' '.join(current_line + [word])
             last_width, width = width, self.draw.textlength(test_line, font=font_to_use)
