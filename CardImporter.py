@@ -36,6 +36,12 @@ def string_to_cost(cost_string):
     cost_dict = {y:int(x) for x,y in match}
     return Cost(cost_dict)
 
+def identity_splitter(x):
+    identities = x.split(", ")
+    identities = [identity for identity in identities if identity]
+    if not len(identities):
+        return ["Neutre"]
+    return identities
 
 class CardImporter:
     pickle_path = "./cards/"
@@ -43,8 +49,7 @@ class CardImporter:
                'Effet':'effect', 'Peuple':'nation', 'Classe':'card_class', 'ATK':'attack', 'DEF':'defense',
                'Version':'version', 'Extension':'extension'}
     option_int = lambda x: int(x) if x.isdigit() else None
-    str_splitter = lambda x : x.split(", ")
-    mapping_transformer = {'attack': option_int, 'defense': option_int, 'cost':string_to_cost, 'identity': str_splitter}
+    mapping_transformer = {'attack': option_int, 'defense': option_int, 'cost':string_to_cost, 'identity': identity_splitter}
 
     def parse(self, csv_file, mapping=None, limit=None):
         if mapping is None:
