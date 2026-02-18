@@ -1,7 +1,7 @@
 import os
 import re
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageColor
 import pickle
 
 from CardImporter import Card, Cost
@@ -14,23 +14,34 @@ def from_pickle(pickle_file) -> Card:
 def int_tuple(x):
     return int(x[0]), int(x[1])
 
-str_to_element = {
-    "F": "fire",
-    "G": "ice",
-    "E": "lightning",
-    "O": "water",
-    "N": "nature",
-    "T": "darkness",
-    "neutral": "neutral"
+cost_to_identity = {
+    "F": "Feu",
+    "G": "Glace",
+    "E": "Eclair",
+    "O": "Eau",
+    "N": "Nature",
+    "T": "Ténèbres",
+    "neutral": "Neutre"
 }
 
-str_to_identity = {
+identity_to_image = {
     "Eclair": "lightning",
     "Feu": "fire",
     "Eau": "water",
     "Glace": "ice",
     "Nature": "nature",
-    "Ténèbres": "darkness"
+    "Ténèbres": "darkness",
+    "Neutre": "neutral"
+}
+
+identity_to_color = {
+    "Eclair": "gold",
+    "Feu": "coral",
+    "Eau": "royalblue",
+    "Glace": "lightblue",
+    "Nature": "lightgreen",
+    "Ténèbres": "rebeccapurple",
+    "Neutre": "silver"
 }
 
 effect_keywords = ["Rage", "Dissipation", "Impulsion", "Camouflage", "Furtif", "Réactive", "Aura", "Interception",
@@ -80,7 +91,15 @@ class ImageCardTransformer:
 
         # Frame
         xys = (0, 0), (self.width - 5, self.height - 2)
-        self.draw.rectangle(xys, outline="black", fill="white", width=3)
+        identity_polygons = [[[0,0,744,0,744,1039,0,1039]],
+                        [[0,0,744,0,0,1039],[744,0,0,1039,744,1039]],
+                        [[0,0,744,0,0,520],[744,0,744,520,0,1039,0,520],[744,520,744,1039,0,1039]]]
+        nb_identity = len(card.identity)
+        if nb_identity > 0:
+            for i in range(nb_identity):
+                self.draw.polygon(identity_polygons[nb_identity-1][i], fill=identity_to_color[card.identity[i]])
+        else:
+            self.draw.rectangle(xys, outline="black", fill="white", width=3)
 
         # Title
         xys = (self.h_margin, self.v_margin), int_tuple((self.h_limit_margin, self.v_margin + self.title_font_size * 4 / 3))
@@ -93,28 +112,26 @@ class ImageCardTransformer:
 
         resize_dim = (xys[1][0]-xys[0][0]-10, xys[1][1]-xys[0][1]-10)
         nb_identities = len(card.identity)
-        resize_dim_multi = int_tuple((resize_dim[0] / nb_identities, resize_dim[1] / nb_identities))
 
-        if nb_identities == 0:
-            artwork = Image.open(f"{self.image_elements_directory}no_artwork.png")
-            artwork = artwork.crop((78, 0, 422, 500))
-            artwork = artwork.resize(resize_dim).convert("RGBA")
-            self.base.paste(artwork, (xys[0][0]+5, xys[0][1]+5), mask=artwork)
-        else:
-            for i, identity in enumerate(card.identity):
-                artwork = Image.open(f"{self.image_elements_directory}{str_to_identity[identity]}.png")
-                artwork = artwork.crop((0, 78, 500, 404))
-                artwork = artwork.resize(resize_dim_multi).convert("RGBA")
-                artwork = artwork.point(lambda p: 40 if p > 150 else 0)
-                self.base.paste(artwork, int_tuple((xys[0][0]+5 + resize_dim_multi[0] * i, (xys[0][1]+xys[1][1])/2 - resize_dim_multi[1] / 2 )), mask=artwork)
+        resize_dim_multi = int_tuple((resize_dim[0] / nb_identities, resize_dim[1] / nb_identities))
+        offset_nb_identitiers = [[0], [-50, 50], [-50,20,90]]
+        for i, identity in enumerate(card.identity):
+            artwork = Image.open(f"{self.image_elements_directory}{identity_to_image[identity]}.png")
+            artwork, binary = self.normalize_artwork(artwork, resize_dim_multi, color=identity_to_color[identity])
+            artwork.save("test.png")
+            self.base.paste(artwork, int_tuple((xys[0][0]+5 + resize_dim_multi[0] * i, (xys[0][1]+xys[1][1])/2 - resize_dim_multi[1] / 2 + offset_nb_identitiers[nb_identities-1][i])), mask=binary)
+
+        # Swiftness
+        if card.swiftness == "Rapide":
+            swiftness_resize_dim = (103,75)
+            swiftness_image = Image.open(f"{self.image_elements_directory}swiftness.png").resize(swiftness_resize_dim)
+            swiftness_image = swiftness_image.convert("RGBA")
+            self.base.paste(swiftness_image, (xys[1][0] - swiftness_resize_dim[0] - self.h_margin // 2, xys[1][1] - swiftness_resize_dim[1] - self.v_margin), mask=swiftness_image)
 
         # Type + Class
         base_pos = xys[1][1] + self.v_margin
         xys = (self.h_margin, base_pos), int_tuple((self.h_limit_margin, base_pos + self.title_font_size * 4 / 3))
-        if card.card_class != "":
-            self.add_text_in_rectangle(f"{card.card_type}  -  {card.card_class}", self.title_font_size, xys)
-        else:
-            self.add_text_in_rectangle(f"{card.card_type}", self.title_font_size, xys)
+        self.add_text_in_rectangle(f"{card.card_type}", self.title_font_size, xys)
 
         # Effect
         base_pos = xys[1][1] + self.v_margin
@@ -133,10 +150,11 @@ class ImageCardTransformer:
         # Cost
         for i, cost in enumerate(card.cost):
             element, value = cost
-            element_image = Image.open(self.image_elements_directory + str_to_element[element] + ".png")
+            element_image = Image.open(self.image_elements_directory + identity_to_image[cost_to_identity[element]] + ".png")
             element_image = element_image.crop((75,75,425,425))
             element_image = element_image.resize((self.cost_image_size, self.cost_image_size)).convert("RGBA")
-            self.base.paste(element_image, (35 + i*self.cost_gap, 115), mask=element_image)
+            element_image, binary = self.change_color(element_image, identity_to_color[cost_to_identity[element]])
+            self.base.paste(element_image, (35 + i*self.cost_gap, 115), mask=binary)
             xys_element = ((30 + self.cost_image_size + i*self.cost_gap, 115),
                            (30 + self.cost_image_size + i*self.cost_gap + 30, 115 + self.cost_image_size))
             self.add_text_in_rectangle(f"{value}", self.effect_font_size, xys_element, margin = False, rectangle=False)
@@ -147,11 +165,11 @@ class ImageCardTransformer:
             xys_nation = ((480, base_pos),(730, base_pos + self.title_font_size * 4 / 3))
             self.add_text_in_rectangle(f"{card.nation}", self.title_font_size, xys_nation)
 
-        # Swiftness
-        if card.swiftness == "Rapide":
-            swiftness_image = Image.open(f"{self.image_elements_directory}swiftness.png").resize((130, 182))
-            swiftness_image = swiftness_image.convert("RGBA")
-            self.base.paste(swiftness_image, (595, 420), mask=swiftness_image)
+        # Class
+        base_pos = 280
+        if card.card_class != "":
+            xys_nation = ((480, base_pos),(730, base_pos + self.title_font_size * 4 / 3))
+            self.add_text_in_rectangle(f"{card.card_class}", self.title_font_size, xys_nation)
 
         # Extension / Version
         base_pos = xys[1][1] - self.v_margin / 2 - 2 * self.v_margin
@@ -160,6 +178,19 @@ class ImageCardTransformer:
 
         # Save
         self.base.save(f"{self.image_directory}{card.id}.png")
+
+    def normalize_artwork(self, artwork, resize_dim, color, placeholder=False):
+        artwork = artwork.crop((0, 78, 500, 404))
+        artwork = artwork.resize(resize_dim).convert("RGBA")
+        rgb = ImageColor.getrgb(color)
+        artwork, binary = self.change_color(artwork, rgb)
+        return artwork, binary
+
+    def change_color(self, artwork, color):
+        binary = artwork.point(lambda p: 255 if p > 150 else 0)
+        colored = Image.new("RGB", artwork.size)
+        colored.paste(color, mask=binary)
+        return colored, binary
 
     def custom_multiline_text(self, text, position, font_filename, bold_font_filename, max_width, fill="black"):
         if text == "":
@@ -245,21 +276,27 @@ class ImageCardTransformer:
         word_to_identify_effect = None
         for i in range(len(words)):
             word = words[i]
-            last_word, word_to_identify_effect = word_to_identify_effect, word.strip(",:.")
-            font_to_use = font
-            if (word_to_identify_effect in effect_keywords
-                    or word_to_identify_effect in effect_keywords_next
-                    or last_word in effect_keywords_next and word.isdigit()):
-                font_to_use = bold_font
-            test_line = ' '.join(current_line + [word])
-            last_width, width = width, self.draw.textlength(test_line, font=font_to_use)
-            if width <= max_width:
-                current_line.append(word)
-            else:
+            if word == '|':
                 lines.append(' '.join(current_line))
-                width = self.draw.textlength(word, font=font_to_use)
-                widths.append(last_width)
-                current_line = [word]
+                widths.append(width)
+                width = 0
+                current_line = []
+            else:
+                last_word, word_to_identify_effect = word_to_identify_effect, word.strip(",:.")
+                font_to_use = font
+                if (word_to_identify_effect in effect_keywords
+                        or word_to_identify_effect in effect_keywords_next
+                        or last_word in effect_keywords_next and word.isdigit()):
+                    font_to_use = bold_font
+                test_line = ' '.join(current_line + [word])
+                last_width, width = width, self.draw.textlength(test_line, font=font_to_use)
+                if width <= max_width:
+                    current_line.append(word)
+                else:
+                    lines.append(' '.join(current_line))
+                    width = self.draw.textlength(word, font=font_to_use)
+                    widths.append(last_width)
+                    current_line = [word]
 
         # Add the last line
         if current_line:
