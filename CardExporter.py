@@ -49,7 +49,7 @@ def main():
             ci.parse(csv_filepath, limit=args.l)
     ict.transform_cards()
     pdf_filepath = args.pp if args.pp is not None else defaut_file+".pdf"
-    pi.import_from_images_directory(pdf_filepath=pdf_filepath)
+    pi.import_from_images_directory(pdf_filepath=pdf_filepath, example=args.test)
 
     # After Reset if asked
     if args.dp:
