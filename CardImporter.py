@@ -73,15 +73,15 @@ class CardImporter:
     def parse(self, csv_file, mapping=None, limit=None):
         if mapping is None:
             mapping = self.mapping
-        with open(csv_file, "r") as f:
-            csv_reader = csv.reader(f, delimiter=",")
+        with open(csv_file, "r") as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=",")
             header = csv_reader.__next__()
             i = 0
             for row in csv_reader:
                 new_card = Card(header, row, mapping, self.mapping_transformer)
                 if new_card.id:
-                    with open(f"{self.pickle_path}{new_card.id}.pickle", "wb") as f:
-                        pickle.dump(new_card, f)
+                    with open(f"{self.pickle_path}{new_card.id}.pickle", "wb") as pickle_file:
+                        pickle.dump(new_card, pickle_file)
                     i += 1
                 if limit is not None and i > limit:
                     break

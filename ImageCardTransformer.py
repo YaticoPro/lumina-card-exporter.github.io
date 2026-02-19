@@ -112,12 +112,12 @@ class ImageCardTransformer:
         nb_identities = len(card.identity)
 
         resize_dim_multi = int_tuple((resize_dim[0] / nb_identities, resize_dim[1] / nb_identities))
-        offset_nb_identitiers = [[0], [-50, 50], [-50,20,90]]
+        offset_nb_identities = [[0], [-50, 50], [-50,20,90]]
         for i, identity in enumerate(card.identity):
             artwork = Image.open(f"{self.image_elements_directory}{identity_to_image[identity]}.png")
             artwork, binary = self.normalize_artwork(artwork, resize_dim_multi, color=identity_to_color[identity])
             artwork.save("test.png")
-            self.base.paste(artwork, int_tuple((xys[0][0]+5 + resize_dim_multi[0] * i, (xys[0][1]+xys[1][1])/2 - resize_dim_multi[1] / 2 + offset_nb_identitiers[nb_identities-1][i])), mask=binary)
+            self.base.paste(artwork, int_tuple((xys[0][0]+5 + resize_dim_multi[0] * i, (xys[0][1]+xys[1][1])/2 - resize_dim_multi[1] / 2 + offset_nb_identities[nb_identities-1][i])), mask=binary)
 
         # Swiftness
         if card.swiftness == "Rapide":
@@ -177,7 +177,7 @@ class ImageCardTransformer:
         # Save
         self.base.save(f"{self.image_directory}{card.id}.png")
 
-    def normalize_artwork(self, artwork, resize_dim, color, placeholder=False):
+    def normalize_artwork(self, artwork, resize_dim, color):
         artwork = artwork.crop((0, 78, 500, 404))
         artwork = artwork.resize(resize_dim).convert("RGBA")
         rgb = ImageColor.getrgb(color)
@@ -258,13 +258,13 @@ class ImageCardTransformer:
         pxpy = (xys[0][0] + xys[1][0]) / 2 - text_length / 2, (xys[0][1] + xys[1][1]) / 2 - text_font_size * 4 / 6
         self.draw.text(pxpy, font=title_font, text=text, fill="black")
 
-    def draw_text_in_font(self, coords: tuple[int, int],
+    def draw_text_in_font(self, coordinates: tuple[int, int],
                           content: list[tuple[str, tuple[int, int, int], str, int]]):
         fonts = {}
         for text, color, font_name, font_size in content:
             font = fonts.setdefault(font_name, ImageFont.truetype(font_name, font_size))
-            self.draw.text(coords, text, color, font)
-            coords = (coords[0] + font.getsize(text)[0], coords[1])
+            self.draw.text(coordinates, text, color, font)
+            coordinates = (coordinates[0] + font.getsize(text)[0], coordinates[1])
 
     def wrap_text(self, text, font, bold_font, max_width):
         words = text.split()
