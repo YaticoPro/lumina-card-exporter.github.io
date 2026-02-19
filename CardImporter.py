@@ -4,6 +4,9 @@ import csv
 import pickle
 
 class Cost:
+    """
+    Class representing the cost of a card
+    """
     E,F,G,O,N,T,neutral=0,0,0,0,0,0,0
     def __init__(self, dictionary):
         for k, v in dictionary.items():
@@ -20,6 +23,10 @@ class Cost:
                 yield attr, getattr(self, attr)
 
 class Card:
+    """
+    Class representing a card
+    """
+    id, title, card_type, cost, identity, swiftness, effect, version, extension, attack, defense, nation, card_class = [None]*13
     def __init__(self, header, row, mapping, mapping_transformer=None):
         if mapping_transformer is None:
             mapping_transformer = {}
@@ -30,13 +37,21 @@ class Card:
                     v = mapping_transformer[k](v)
                 setattr(self, k, v)
 
-def string_to_cost(cost_string):
+def string_to_cost(cost_string) -> Cost:
+    """
+    From 2E + 1T + 2
+    To a Cost instance
+    """
     regex_cost = re.compile("([0-9]+)([A-Z])*")
     match = regex_cost.findall(cost_string)
     cost_dict = {y:int(x) for x,y in match}
     return Cost(cost_dict)
 
-def identity_splitter(x):
+def identity_splitter(x) -> list[str]:
+    """
+    From a string of words separated by a comma and space
+    To a list of words, add `Neutre` if no word found
+    """
     identities = x.split(", ")
     identities = [identity for identity in identities if identity]
     if not len(identities):
@@ -44,6 +59,10 @@ def identity_splitter(x):
     return identities
 
 class CardImporter:
+    """
+    Class transforming the csv file into a list of Card instances and
+    importing the Cards into a pickle format
+    """
     pickle_path = "./cards/"
     mapping = {'ID': 'id','Nom': 'title', 'Type': 'card_type', 'Coût':'cost', 'Identité': 'identity', 'Vitesse': 'swiftness',
                'Effet':'effect', 'Peuple':'nation', 'Classe':'card_class', 'ATK':'attack', 'DEF':'defense',
@@ -71,7 +90,3 @@ class CardImporter:
         for file in os.listdir(f"{self.pickle_path}"):
             if file.endswith(".pickle"):
                 os.remove(f"{self.pickle_path}{file}")
-
-if __name__ == '__main__':
-    ci = CardImporter()
-    ci.parse("./files/lumina_0_1.csv")

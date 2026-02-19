@@ -1,10 +1,11 @@
 import os
 import re
+import json
 
 from PIL import Image, ImageDraw, ImageFont, ImageColor
 import pickle
 
-from CardImporter import Card, Cost
+from CardImporter import Card
 
 
 def from_pickle(pickle_file) -> Card:
@@ -49,11 +50,18 @@ effect_keywords = ["Rage", "Dissipation", "Impulsion", "Camouflage", "Furtif", "
 effect_keywords_next = ["Croissance", "Gel", "Soin", "Silence"]
 
 class ImageCardTransformer:
+    """
+    Class transforming the Card (from a pickle format) into
+    """
+    base, draw, width, height, cost_image_size, cost_gap, h_margin, v_margin, h_limit_margin, margin_width = [None]*10
+    title_font_size, effect_font_size, image_height, effect_font_filename, effect_bold_effect_filename, effect_height = [None]*6
+    version_font_size, version_font_filename, title_font_filename = [None]*3
     image_directory = "./images/"
     cards_directory = "./cards/"
     elements_directory = "./card_elements/"
     image_elements_directory = elements_directory + "image_elements/"
     police_elements_directory = elements_directory + "fonts/"
+    json_config = elements_directory + "/config.json"
 
     def __init__(self):
         self.reset_base()
@@ -61,24 +69,14 @@ class ImageCardTransformer:
     def reset_base(self):
         self.base = Image.open(f"{self.image_elements_directory}image_background.png")
         self.draw = ImageDraw.Draw(self.base)
-        self.width, self.height = self.base.size # (744, 1039)
 
-        self.h_margin, self.v_margin = 30, 15
+        with open(f"{self.json_config}", "r") as f:
+            json_config = json.load(f)
+            for k, v in json_config.items():
+                setattr(self, k, v)
 
-        self.title_font_size = 60
-        self.title_font_filename = "Calvera Personal Use Only.ttf"
+        assert self.base.size == (self.width, self.height)
 
-        self.version_font_size = 50
-        self.version_font_filename = "Montserrat-Regular.ttf"
-
-        self.effect_font_size = 45
-        self.effect_font_filename = "Montserrat-Regular.ttf"
-        self.effect_bold_effect_filename = "Montserrat-Extrabold.ttf"
-        self.effect_height = 320
-
-        self.image_height = 450
-
-        self.cost_gap = 92
         self.cost_image_size = int(self.cost_gap * 5 / 8)
 
         self.h_limit_margin = self.width - self.h_margin
@@ -186,7 +184,8 @@ class ImageCardTransformer:
         artwork, binary = self.change_color(artwork, rgb)
         return artwork, binary
 
-    def change_color(self, artwork, color):
+    @staticmethod
+    def change_color(artwork, color):
         binary = artwork.point(lambda p: 255 if p > 150 else 0)
         colored = Image.new("RGB", artwork.size)
         colored.paste(color, mask=binary)

@@ -2,6 +2,9 @@ import requests
 
 
 class GoogleSheetsCSVImporter:
+    """
+    I think it does not only work with Google Sheets, but it is my current purpose
+    """
     link = ""
     filename = "./files/to_export.csv"
 

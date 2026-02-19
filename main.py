@@ -12,7 +12,8 @@ def main():
         prog='CardExporter',
         description='Transform the csv list of cards into the visual basic version of cards stored in a PDF file')
 
-    parser.add_argument('-test', '--test', action='store_true', help="To just use for a test csv file")
+    parser.add_argument('-test', '--test', action='store_true', help="To just use for a test csv file, requires a test.csv in the files directory")
+
     parser.add_argument('-link', '--link', default=None, type=str, help="The link of the csv file")
     parser.add_argument('-csv-filepath', '--cp', type=str, nargs="+", help="The path of the csv file")
     parser.add_argument('-limit', '--l', type=int, default=None, help="The maximum number of cards to display")

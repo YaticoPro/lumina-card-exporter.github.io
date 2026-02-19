@@ -1,0 +1,8 @@
+ID,Nom,Type,Coût,Coût sommé,Identité,Vitesse,Effet,Liste des Keywords,Peuple,Classe,ATK,DEF,Version,Extension,CTN,Ecart Coût CTN,Fonction de la carte,Puissance estimée /5
+5acb464eb3f80836b42b9b97fa9ccb31,Exécuteur Nyxel,Unité,2T+2,4,Ténèbres,Lent,"Furtif | Hymne : Détruisez une Unité Loyal, chaque adversaire perd des PVs égaux à l'attaque de la Unité détruite","Hymne, Furtif",Nyxels,Architecte,3,3,0.1,Base,5,1,,
+7014368cff437c1f992e4704ad8f1d42,Onde de Désintégration Chaotique,Protocole,2E+1T,3,"Eclair, Ténèbres",Rapide,"Infligez 1 dégâts à chaque Unité, puis si au moins 1 Unité est détruite, recommencez",,,,,,0.1,Base,"2,46","-0,54",,
+b3b19e119f6f7ec0a30969a6f88a829a,Sanctuaire Hydro-Syntonique,Structure,2O+1N,2,"Eau, Nature",Lent,"Réactive : Après avoir résolut un Soin, piochez 1 carte","Réactive, Soin",Héliarques,,,,0.1,Base,"4,8","2,8",Payoff,
+eb68973a8a25aaffcbe4331bc8533d66,Plaine d'Echo Sanguin,Théâtre,2F,2,Feu,Lent,"Réactive : Après d'un effet autre que celui fasse perdre des PVs à un joueur, tous les joueurs perdent autant de PV",Réactive,,,,,0.1,Base,"1,2","-0,8",,
+0efe95a48201f03191087ac6bd860f37,Crystallisation Instantanée,Protocole,1G+1O,2,"Glace, Eau",Rapide,Gel 2,Gel,,,,,0.1,Base,,-2,,
+1,Aldricarion le Septcent-Quatorzième,Unité,6E+6F+7O+1G+8N+1T+15,,"Glace, Nature, Eclair",Rapide,"Camouflage | Rage | Impulsion : Donne Gel 1 à tous les ennemis | Dissipation : Soin 5 | Furie et Hymne : Inflige 1 dégât aux joueurs adverses",,Thyréens Héliarques Nyxels,"Grand Duc Suprême des Nébuleuses Éternelles, Souverain des Lunes Oubliées et Gardien des Voiles Stellaires",666,666, 42.42,Ultra OP,,,,,
+2,Robot,Unité,0,,,Lent,,,,,5,5,0.1,Base,,,,

@@ -1,0 +1,16 @@
+{
+  "width": 744,
+  "height": 1039,
+  "h_margin": 30,
+  "v_margin": 15,
+  "title_font_size": 60,
+  "title_font_filename":  "Calvera Personal Use Only.ttf",
+  "version_font_size": 50,
+  "version_font_filename": "Montserrat-Regular.ttf",
+  "effect_font_size": 45,
+  "effect_font_filename": "Montserrat-Regular.ttf",
+  "effect_bold_effect_filename": "Montserrat-Extrabold.ttf",
+  "effect_height": 320,
+  "image_height": 450,
+  "cost_gap": 92
+}

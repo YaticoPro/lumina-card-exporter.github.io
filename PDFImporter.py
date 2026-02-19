@@ -3,6 +3,9 @@ import os
 from fpdf import FPDF
 
 class PDFImporter:
+    """
+    Class importing images into PDF files
+    """
     image_directory = "./images/"
     def __init__(self, card_height=88, card_width=63, vertical_margin=8, horizontal_margin=5):
         self.card_height = card_height
@@ -18,7 +21,7 @@ class PDFImporter:
             pdf.add_page()
             for i, image in enumerate(batch):
                 if example:
-                    py, px = (i-1) // 2, i % 2 * 2
+                    py, px = i // 2, i % 2 * 2
                 else:
                     py, px = i % 3, i // 3
                 x = (px*self.card_width + (px+1)*self.horizontal_margin)
@@ -34,7 +37,3 @@ class PDFImporter:
             images_directory = self.image_directory
         files = os.listdir(images_directory)
         self.import_images([f"{images_directory}{file}" for file in files], pdf_filepath=pdf_filepath, example=example)
-
-if __name__ == "__main__":
-    pi = PDFImporter()
-    pi.import_from_images_directory()
