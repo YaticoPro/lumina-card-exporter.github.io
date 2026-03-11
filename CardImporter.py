@@ -77,12 +77,20 @@ class CardImporter:
             csv_reader = csv.reader(csv_file, delimiter=",")
             header = csv_reader.__next__()
             i = 0
+            ids = set()
             for row in csv_reader:
                 new_card = Card(header, row, mapping, self.mapping_transformer)
-                if new_card.id:
-                    with open(f"{self.pickle_path}{new_card.id}.pickle", "wb") as pickle_file:
-                        pickle.dump(new_card, pickle_file)
-                    i += 1
+                if not new_card.id and new_card.title:
+                    print(f"Card id not found for {new_card.title}, generating new id")
+                    new_card.id = new_card.title.replace(" ", "_")
+                ids.add(new_card.id)
+                if id in ids:
+                    print(f"Card id in conflict {new_card.id}")
+                with open(f"{self.pickle_path}{new_card.id}.pickle", "wb") as pickle_file:
+                    pickle.dump(new_card, pickle_file)
+                i += 1
+
+
                 if limit is not None and i > limit:
                     break
 

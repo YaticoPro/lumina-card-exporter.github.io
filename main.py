@@ -18,8 +18,8 @@ def main():
     parser.add_argument('-csv-filepath', '--cp', type=str, nargs="+", help="The path of the csv file")
     parser.add_argument('-limit', '--l', type=int, default=None, help="The maximum number of cards to display")
     parser.add_argument('-pdf-filepath', '--pp', type=str, default=None, help="The path of the pdf file to store cards")
-    parser.add_argument('-delete-pickle-after-run', '--dp', type=bool, default=True ,help="The path of the csv file")
-    parser.add_argument('-delete-images-after-run', '--di', type=bool, default=True ,help="The path of the csv file")
+    parser.add_argument('-delete-pickle-after-run', '--dp', type=bool, default=False ,help="The path of the csv file", action=argparse.BooleanOptionalAction)
+    parser.add_argument('-delete-images-after-run', '--di', type=bool, default=False ,help="The path of the csv file", action=argparse.BooleanOptionalAction)
     parser.add_argument('-refresh', '--refresh', type=bool, default=False ,help="Refresh exported csv file")
 
     args = parser.parse_args()

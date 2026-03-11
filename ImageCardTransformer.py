@@ -1,5 +1,4 @@
 import os
-import re
 import json
 
 from PIL import Image, ImageDraw, ImageFont, ImageColor
@@ -307,16 +306,14 @@ class ImageCardTransformer:
     def transform_cards(self, directory_path=None, limit=None):
         if directory_path is None:
             directory_path = self.cards_directory
-        regex_file_format = re.compile(r"^([0-9a-z]+)\.pickle$")
         cards_paths = os.listdir(directory_path)
         i = 0
         for card_path in cards_paths:
-            if regex_file_format.match(card_path):
-                self.transform_card(card_path)
-                i += 1
-                if limit is not None and i >= limit:
-                    break
-                self.reset_base()
+            self.transform_card(card_path)
+            i += 1
+            if limit is not None and i >= limit:
+                break
+            self.reset_base()
 
     def delete_images(self):
         for file in os.listdir(f"{self.image_directory}"):

@@ -14,7 +14,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <option name="RUN_TOOL" value="" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
-    <option name="PARAMETERS" value="--link &quot;https://docs.google.com/spreadsheets/d/your-id-to-google-sheets-doc/export?format=csv&quot; --dp True --di True --test" />
+    <option name="PARAMETERS" value="--link &quot;https://docs.google.com/spreadsheets/d/111BbQ9qQjZKu7JiA4oldY8hBvkDSqH1mPWZb_VCFIE8/export?format=csv&quot; --di --dp" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />
