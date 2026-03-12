@@ -64,7 +64,7 @@
 <h3>Journal d'exécution (Logs)</h3>
 <div id="log-container">En attente de démarrage...</div>
 
-<!-- SCRIPT DE CHARGEMENT MANUEL -->
+<!-- Dans la section <script> de votre index.html -->
 <script>
     async function main() {
         const statusDiv = document.getElementById("status");
@@ -77,79 +77,157 @@
                 indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/"
             });
 
-            // 2. Charger les packages
-            statusDiv.innerText = "📦 Installation des packages (requests, fpdf2, pillow)...";
+            // 2. Installer les packages
+            statusDiv.innerText = "📦 Installation des dépendances...";
             await pyodide.loadPackage("pillow");
             await pyodide.loadPackage("micropip");
-
             await pyodide.runPythonAsync(`
                 import micropip
                 await micropip.install("fpdf2")
                 await micropip.install("requests")
             `);
 
-            // 3. Charger les fichiers locaux
-            statusDiv.innerText = "📄 Chargement de vos modules Python...";
+            // 3. Charger les fichiers SYSTÈME (Projet GitHub)
+            // Ajoutez ici TOUS les fichiers nécessaires que l'utilisateur ne sélectionne pas
+            // Ex: modèles, configs, polices, etc.
+            statusDiv.innerText = "📂 Chargement des fichiers système...";
 
-            const loadModule = async (name) => {
-                let code = await (await fetch(`${name}.py`)).text();
-                await pyodide.runPythonAsync(`
-                    import sys
-                    module = sys.modules.setdefault('${name}', type(sys)('${name}'))
-                    module.__file__ = '${name}.py'
-                    module.__package__ = ''
-                    exec(${JSON.stringify(code)}, module.__dict__)
-                `);
+            const systemFiles = [
+                "card_elements/config.json",
+                "card_elements/fonts/Calvera Personal Use Only.ttf",
+                "card_elements/fonts/Montserrat-Bold.ttf",
+                "card_elements/fonts/Montserrat-Extrabold.ttf",
+                "card_elements/fonts/Montserrat-Regular.ttf",
+                "card_elements/image_elements/darkness.png",
+                "card_elements/image_elements/fire.png",
+                "card_elements/image_elements/ice.png",
+                "card_elements/image_elements/image_background.png",
+                "card_elements/image_elements/lightning.png",
+                "card_elements/image_elements/nature.png",
+                "card_elements/image_elements/neutral.png",
+                "card_elements/image_elements/no_artwork.png",
+                "card_elements/image_elements/swiftness.png",
+                "card_elements/image_elements/water.png"
+            ];
+
+            // Création du dossier de travail virtuel
+            await pyodide.runPythonAsync(`
+                import os
+                if not os.path.exists("cards_elements"):
+                    os.makedirs("workdir")
+                os.chdir("workdir")
+                if not os.path.exists("fonts"):
+                    os.makedirs("fonts")
+                if not os.path.exists("image_elements"):
+                    os.makedirs("image_elements")
+                print("Dossier de travail prêt : /cards_elements")
+            `);
+
+            statusDiv.innerText = "📂 Création des dossiers virtuels...";
+
+            // Fonction pour charger un fichier système dans le dossier virtuel
+            const loadSystemFile = async (filePath) => {
+                try {
+                    const response = await fetch(filePath);
+                    if (!response.ok) throw new Error(`Fichier introuvable: ${filePath}`);
+
+                    const buffer = await response.arrayBuffer();
+                    const bytes = new Uint8Array(buffer);
+
+                    // --- CORRECTION 1 : Créer les dossiers parents ---
+                    const pathParts = filePath.split('/');
+                    let currentPath = '';
+
+                    // On boucle sur tous les éléments du chemin sauf le dernier (le fichier)
+                    for (let i = 0; i < pathParts.length - 1; i++) {
+                        if (pathParts[i] === '') continue; // Ignorer le slash initial
+                        currentPath += (currentPath ? '/' : '') + pathParts[i];
+
+                        try {
+                            // Créer le dossier s'il n'existe pas
+                            pyodide.FS.mkdir(currentPath);
+                        } catch (e) {
+                            // Ignorer si le dossier existe déjà (EEXIST)
+                            if (e.errno !== 20) {
+                                // 20 = EEXIST. Si autre erreur, on logue mais on continue.
+                                console.warn(`Dossier ${currentPath} : état ignoré`);
+                            }
+                        }
+                    }
+
+                    // --- CORRECTION 2 : Écriture robuste des bytes ---
+                    // On s'assure d'écrire dans le bon chemin (relatif au dossier de travail ou absolu)
+                    // Si vous voulez les mettre dans "workdir", préfixez le chemin :
+                    const targetPath = filePath; // Ou "workdir/" + filePath si nécessaire
+
+                    // Conversion explicite en tableau d'octets standard pour éviter les erreurs de type
+                    const byteArray = Array.from(bytes);
+
+                    // Écriture dans le système de fichiers virtuel
+                    // Note: FS.writeFile attend un Uint8Array OU un tableau d'octets.
+                    // Parfois, passer l'Uint8Array natif de JS fonctionne mieux que le tableau.
+                    // Essayons d'abord l'Uint8Array direct, c'est le plus standard.
+                    pyodide.FS.writeFile(targetPath, bytes);
+
+                    console.log(`✅ Système chargé: ${targetPath}`);
+
+                } catch (e) {
+                    console.error(`❌ Erreur chargement système ${filePath}:`, e);
+                    statusDiv.innerText = `Erreur: ${e.message}`;
+                    throw e; // Stopper si un fichier critique manque
+                }
             };
 
-            await loadModule("CardImporter");
-            await loadModule("ImageCardTransformer");
-            await loadModule("PDFImporter");
-            await loadModule("GoogleSheetsCSVImporter");
+            // Charger tous les fichiers système en parallèle
+            await Promise.all(systemFiles.map(loadSystemFile));
 
-            // 4. Charger et exécuter le script principal
-            // On ne l'exécute pas tout de suite, on le charge dans l'environnement
-            let mainScript = await (await fetch("main_js.py")).text();
+            statusDiv.innerText = "✅ Fichiers système prêts. En attente de vos données...";
 
-            // On exécute le script pour définir les fonctions et variables globales
-            await pyodide.runPythonAsync(mainScript);
+            // 4. Charger les modules Python (.py)
+            const pyModules = ["CardImporter", "ImageCardTransformer", "PDFImporter", "GoogleSheetsCSVImporter", "main_js"];
 
-            // 5. Récupérer la fonction Python 'lancer_analyse' et l'attacher au bouton
+            for (const mod of pyModules) {
+                const code = await (await fetch(`${mod}.py`)).text();
+                await pyodide.runPythonAsync(`
+                    import sys
+                    module = sys.modules.setdefault('${mod}', type(sys)('${mod}'))
+                    module.__file__ = '${mod}.py'
+                    exec(${JSON.stringify(code)}, module.__dict__)
+                `);
+            }
+
+            // 5. Connecter le bouton
+            // On récupère la fonction depuis le module main_js qu'on vient de charger
+            // Ou si main_js s'exécute tout seul, il expose lancer_analyse dans globals
+
+            // On s'assure que le dossier de travail est bien 'workdir' pour l'utilisateur aussi
+            // Le code Python de main_js devra faire os.chdir('workdir') ou on le fait ici
+
             const pythonFunction = pyodide.globals.get("lancer_analyse");
 
-            if (pythonFunction && pythonFunction.call) {
-                // Attacher l'événement click
+            if (pythonFunction) {
                 startBtn.addEventListener('click', () => {
-                    // Appeler la fonction Python.
-                    // Note: comme c'est async en Python, on gère la promesse si besoin,
-                    // mais Pyodide gère souvent cela automatiquement pour les événements simples.
                     try {
                         pythonFunction();
                     } catch (e) {
                         console.error(e);
-                        logContainer.innerHTML += `<div class="log-error">Erreur lors de l'exécution: ${e}</div>`;
+                        logContainer.innerHTML += `<div class="log-error">Erreur: ${e}</div>`;
                     }
                 });
-
-                // Activer le bouton
                 startBtn.disabled = false;
                 startBtn.innerText = "Lancer le traitement";
-                statusDiv.innerText = "✅ Prêt !";
+                statusDiv.innerText = "✅ Prêt ! Sélectionnez votre dossier de données.";
                 statusDiv.style.color = "green";
-                logContainer.innerHTML += "<div class='log-success'>✅ Système initialisé avec succès.</div>";
             } else {
-                throw new Error("La fonction 'lancer_analyse' n'a pas été trouvée dans main_js.py");
+                throw new Error("Fonction 'lancer_analyse' introuvable.");
             }
 
         } catch (err) {
             statusDiv.innerText = "❌ Erreur critique : " + err.message;
             statusDiv.style.color = "red";
-            logContainer.innerHTML += `<div class="log-error">Erreur d'initialisation: ${err}</div>`;
             console.error(err);
         }
     }
-
-    // Lancer au chargement
     window.onload = main;
 </script>
 
