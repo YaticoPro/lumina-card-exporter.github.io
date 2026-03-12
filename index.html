@@ -1,196 +1,41 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lumina Card Exporter</title>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+    <!-- On garde Pyodide JS -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 800px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-            background-color: #f9f9f9;
-            color: #333;
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; background-color: #f9f9f9; color: #333; }
         h1 { color: #2c3e50; }
-        .summary {
-            background-color: #e8f4f8;
-            padding: 1rem;
-            border-left: 5px solid #3498db;
-            margin-bottom: 2rem;
-            border-radius: 4px;
-        }
-        .controls {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
+        .summary { background-color: #e8f4f8; padding: 1rem; border-left: 5px solid #3498db; margin-bottom: 2rem; border-radius: 4px; }
+        .controls { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 1rem; }
         label { font-weight: bold; margin-bottom: 0.3rem; display: block; }
-        input[type="text"], input[type="file"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box; /* Important pour le padding */
-        }
-        button {
-            padding: 12px 20px;
-            background-color: #27ae60;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: background 0.3s;
-        }
+        input[type="text"], input[type="file"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { padding: 12px 20px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; transition: background 0.3s; }
         button:hover { background-color: #219150; }
         button:disabled { background-color: #95a5a6; cursor: not-allowed; }
-
-        /* Message d'erreur caché par défaut */
-        #error-message {
-            display: none;
-            color: #c0392b;
-            background-color: #fadbd8;
-            padding: 10px;
-            border-radius: 4px;
-            margin-top: 10px;
-            border: 1px solid #e6b0aa;
-        }
-
-        /* Zone de logs */
-        #log-container {
-            margin-top: 2rem;
-            background: #2c3e50;
-            color: #ecf0f1;
-            padding: 1rem;
-            border-radius: 8px;
-            font-family: 'Courier New', Courier, monospace;
-            height: 300px;
-            overflow-y: auto;
-            white-space: pre-wrap; /* Conserve les retours à la ligne */
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
-        }
+        #error-message { display: none; color: #c0392b; background-color: #fadbd8; padding: 10px; border-radius: 4px; margin-top: 10px; border: 1px solid #e6b0aa; }
+        #log-container { margin-top: 2rem; background: #2c3e50; color: #ecf0f1; padding: 1rem; border-radius: 8px; font-family: 'Courier New', Courier, monospace; height: 300px; overflow-y: auto; white-space: pre-wrap; box-shadow: inset 0 2px 5px rgba(0,0,0,0.3); }
         .log-entry { margin-bottom: 5px; border-bottom: 1px solid #34495e; padding-bottom: 2px; }
         .log-error { color: #e74c3c; }
         .log-success { color: #2ecc71; }
+        #status { margin-top: 10px; font-weight: bold; color: #e67e22; }
     </style>
 </head>
 <body>
+
 <h1>Lumina Card Exporter</h1>
-<div id="output"></div>
-<script>
-    async function main() {
-        // Charger Pyodide
-        let pyodide = await loadPyodide({
-            indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/"
-        });
 
-        // Charger les packages nécessaires
-        await pyodide.loadPackage("pillow");
-        await pyodide.loadPackage("micropip");
-
-        await pyodide.runPythonAsync(`
-                import micropip
-                await micropip.install("fpdf2")
-            `);
-
-        await pyodide.runPythonAsync(`
-                import micropip
-                await micropip.install("requests")
-            `);
-
-        let cardImporterCode = await (await fetch("CardImporter.py")).text();
-        let imageCardTransformerCode = await (await fetch("ImageCardTransformer.py")).text();
-        let pdfImporter = await (await fetch("PDFImporter.py")).text();
-        let googleSheetsCSVImporter = await (await fetch("GoogleSheetsCSVImporter.py")).text();
-
-        await pyodide.runPythonAsync(`
-                import sys
-                from io import StringIO
-
-                # Créer un module virtuel "CardImporter"
-                module = sys.modules.setdefault('CardImporter', type(sys)('CardImporter'))
-                module.__file__ = 'CardImporter.py'
-                module.__package__ = ''
-
-                # Exécuter le code de CardImporter dans ce module
-                exec(${JSON.stringify(cardImporterCode)}, module.__dict__)
-            `);
-
-        document.getElementById("output").innerText = "Toutes ";
-
-        await pyodide.runPythonAsync(`
-                import sys
-                from io import StringIO
-
-                # Créer un module virtuel "ImageCardTransformer"
-                module = sys.modules.setdefault('ImageCardTransformer', type(sys)('ImageCardTransformer'))
-                module.__file__ = 'ImageCardTransformer.py'
-                module.__package__ = ''
-
-                # Exécuter le code de ImageCardTransformer dans ce module
-                exec(${JSON.stringify(imageCardTransformerCode)}, module.__dict__)
-            `);
-
-        document.getElementById("output").innerText = "Toutes les classes";
-
-        await pyodide.runPythonAsync(`
-                import sys
-                from io import StringIO
-
-                # Créer un module virtuel "PDFImporter"
-                module = sys.modules.setdefault('PDFImporter', type(sys)('PDFImporter'))
-                module.__file__ = 'PDFImporter.py'
-                module.__package__ = ''
-
-                # Exécuter le code de PDFImporter dans ce module
-                exec(${JSON.stringify(pdfImporter)}, module.__dict__)
-            `);
-
-        document.getElementById("output").innerText = "Toutes les classes chargées";
-
-        await pyodide.runPythonAsync(`
-                import sys
-                from io import StringIO
-
-                # Créer un module virtuel "GoogleSheetsCSVImporter"
-                module = sys.modules.setdefault('GoogleSheetsCSVImporter', type(sys)('GoogleSheetsCSVImporter'))
-                module.__file__ = 'GoogleSheetsCSVImporter.py'
-                module.__package__ = ''
-
-                # Exécuter le code de GoogleSheetsCSVImporter dans ce module
-                exec(${JSON.stringify(googleSheetsCSVImporter)}, module.__dict__)
-            `);
-
-        document.getElementById("output").innerText = "Toutes les classes chargées !!!!!";
-
-        let response = await fetch("main_js.py");
-        let script = await response.text();
-
-        // Exécuter le script
-        await pyodide.runPythonAsync(script);
-
-        // Afficher un message de succès
-        document.getElementById("output").innerText = "Script exécuté avec succès !";
-    }
-
-    // Lancer après le chargement de la page
-    window.onload = main;
-</script>
-<!-- 1. Titre -->
-<h1>Mon Outil d'Analyse Python</h1>
+<!-- Indicateur de statut -->
+<div id="status">⏳ Chargement de l'environnement Python... </div>
+<br>
 
 <!-- 2. Résumé -->
 <div class="summary">
     <p>Cet outil vous permet de traiter un fichier local en le combinant avec une ressource distante.
-        Sélectionnez un fichier sur votre ordinateur, fournissez un lien de référence, et lancez l'analyse.
-        Les résultats et les étapes du traitement s'afficheront dans le journal ci-dessous.</p>
+        Sélectionnez un fichier sur votre ordinateur, fournissez un lien de référence, et lancez l'analyse.</p>
 </div>
 
 <div class="controls">
@@ -200,8 +45,14 @@
         <input type="file" id="fileInput">
     </div>
 
-    <!-- 5. Bouton d'action -->
-    <button id="startBtn" py-click="lancer_analyse">Lancer le traitement</button>
+    <!-- 4. Champ de lien -->
+    <div>
+        <label for="linkInput">2. Entrer un lien de référence (URL) :</label>
+        <input type="text" id="linkInput" placeholder="https://exemple.com/donnees">
+    </div>
+
+    <!-- 5. Bouton d'action (Désactivé au début) -->
+    <button id="startBtn" disabled>Chargement...</button>
 
     <!-- 6. Message d'erreur caché -->
     <div id="error-message">
@@ -213,9 +64,94 @@
 <h3>Journal d'exécution (Logs)</h3>
 <div id="log-container">En attente de démarrage...</div>
 
+<!-- SCRIPT DE CHARGEMENT MANUEL -->
+<script>
+    async function main() {
+        const statusDiv = document.getElementById("status");
+        const startBtn = document.getElementById("startBtn");
+        const logContainer = document.getElementById("log-container");
 
-<!-- Code Python Principal -->
-<script type="py" src="main_js.py"></script>
+        try {
+            // 1. Charger Pyodide
+            let pyodide = await loadPyodide({
+                indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/"
+            });
+
+            // 2. Charger les packages
+            statusDiv.innerText = "📦 Installation des packages (requests, fpdf2, pillow)...";
+            await pyodide.loadPackage("pillow");
+            await pyodide.loadPackage("micropip");
+
+            await pyodide.runPythonAsync(`
+                import micropip
+                await micropip.install("fpdf2")
+                await micropip.install("requests")
+            `);
+
+            // 3. Charger les fichiers locaux
+            statusDiv.innerText = "📄 Chargement de vos modules Python...";
+
+            const loadModule = async (name) => {
+                let code = await (await fetch(`${name}.py`)).text();
+                await pyodide.runPythonAsync(`
+                    import sys
+                    module = sys.modules.setdefault('${name}', type(sys)('${name}'))
+                    module.__file__ = '${name}.py'
+                    module.__package__ = ''
+                    exec(${JSON.stringify(code)}, module.__dict__)
+                `);
+            };
+
+            await loadModule("CardImporter");
+            await loadModule("ImageCardTransformer");
+            await loadModule("PDFImporter");
+            await loadModule("GoogleSheetsCSVImporter");
+
+            // 4. Charger et exécuter le script principal
+            // On ne l'exécute pas tout de suite, on le charge dans l'environnement
+            let mainScript = await (await fetch("main_js.py")).text();
+
+            // On exécute le script pour définir les fonctions et variables globales
+            await pyodide.runPythonAsync(mainScript);
+
+            // 5. Récupérer la fonction Python 'lancer_analyse' et l'attacher au bouton
+            const pythonFunction = pyodide.globals.get("lancer_analyse");
+
+            if (pythonFunction && pythonFunction.call) {
+                // Attacher l'événement click
+                startBtn.addEventListener('click', () => {
+                    // Appeler la fonction Python.
+                    // Note: comme c'est async en Python, on gère la promesse si besoin,
+                    // mais Pyodide gère souvent cela automatiquement pour les événements simples.
+                    try {
+                        pythonFunction();
+                    } catch (e) {
+                        console.error(e);
+                        logContainer.innerHTML += `<div class="log-error">Erreur lors de l'exécution: ${e}</div>`;
+                    }
+                });
+
+                // Activer le bouton
+                startBtn.disabled = false;
+                startBtn.innerText = "Lancer le traitement";
+                statusDiv.innerText = "✅ Prêt !";
+                statusDiv.style.color = "green";
+                logContainer.innerHTML += "<div class='log-success'>✅ Système initialisé avec succès.</div>";
+            } else {
+                throw new Error("La fonction 'lancer_analyse' n'a pas été trouvée dans main_js.py");
+            }
+
+        } catch (err) {
+            statusDiv.innerText = "❌ Erreur critique : " + err.message;
+            statusDiv.style.color = "red";
+            logContainer.innerHTML += `<div class="log-error">Erreur d'initialisation: ${err}</div>`;
+            console.error(err);
+        }
+    }
+
+    // Lancer au chargement
+    window.onload = main;
+</script>
 
 </body>
 </html>
