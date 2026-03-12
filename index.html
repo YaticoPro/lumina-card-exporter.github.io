@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outil de Traitement de Fichiers</title>
+
+    <!-- Chargement de PyScript (CSS et JS) -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+
+    <py-config>
+        [[fetch]]
+        from = "."
+        files = ["CardImporter.py", "GoogleSheetsCSVImporter.py", "ImageCardTransformer.py", "PDFImporter.py"]
+        [[packages]]
+        files = ["requests", "fpdf"]
+    </py-config>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        h1 { color: #2c3e50; }
+        .summary {
+            background-color: #e8f4f8;
+            padding: 1rem;
+            border-left: 5px solid #3498db;
+            margin-bottom: 2rem;
+            border-radius: 4px;
+        }
+        .controls {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        label { font-weight: bold; margin-bottom: 0.3rem; display: block; }
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box; /* Important pour le padding */
+        }
+        button {
+            padding: 12px 20px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #219150; }
+        button:disabled { background-color: #95a5a6; cursor: not-allowed; }
+
+        /* Message d'erreur caché par défaut */
+        #error-message {
+            display: none;
+            color: #c0392b;
+            background-color: #fadbd8;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            border: 1px solid #e6b0aa;
+        }
+
+        /* Zone de logs */
+        #log-container {
+            margin-top: 2rem;
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
+            height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap; /* Conserve les retours à la ligne */
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .log-entry { margin-bottom: 5px; border-bottom: 1px solid #34495e; padding-bottom: 2px; }
+        .log-error { color: #e74c3c; }
+        .log-success { color: #2ecc71; }
+    </style>
+</head>
+<body>
+
+<!-- 1. Titre -->
+<h1>Mon Outil d'Analyse Python</h1>
+
+<!-- 2. Résumé -->
+<div class="summary">
+    <p>Cet outil vous permet de traiter un fichier local en le combinant avec une ressource distante.
+        Sélectionnez un fichier sur votre ordinateur, fournissez un lien de référence, et lancez l'analyse.
+        Les résultats et les étapes du traitement s'afficheront dans le journal ci-dessous.</p>
+</div>
+
+<div class="controls">
+    <!-- 3. Explorateur de fichiers -->
+    <div>
+        <label for="fileInput">1. Choisir un fichier local :</label>
+        <input type="file" id="fileInput">
+    </div>
+
+    <!-- 4. Champ de lien -->
+    <div>
+        <label for="linkInput">2. Entrer un lien de référence (URL) :</label>
+        <input type="text" id="linkInput" placeholder="https://exemple.com/donnees">
+    </div>
+
+    <!-- 5. Bouton d'action -->
+    <button id="startBtn" py-click="lancer_analyse">Lancer le traitement</button>
+
+    <!-- 6. Message d'erreur caché -->
+    <div id="error-message">
+        ⚠️ Veuillez sélectionner un fichier ou entrer un lien valide avant de démarrer.
+    </div>
+</div>
+
+<!-- 7. Zone de logs -->
+<h3>Journal d'exécution (Logs)</h3>
+<div id="log-container">En attente de démarrage...</div>
+
+
+<!-- Code Python Principal -->
+<script type="py" src="main_js.py"></script>
+
+</body>
+</html>
