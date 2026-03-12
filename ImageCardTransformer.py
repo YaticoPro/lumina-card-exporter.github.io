@@ -4,8 +4,8 @@ import json
 from PIL import Image, ImageDraw, ImageFont, ImageColor
 import pickle
 
-from CardImporter import Card
-
+if not 'Card' in dir():
+    from CardImporter import Card
 
 def from_pickle(pickle_file) -> Card:
     with open(pickle_file, "rb") as f:
@@ -246,14 +246,16 @@ class ImageCardTransformer:
         if font is None:
             font = self.title_font_filename
         title_font = ImageFont.truetype(self.police_elements_directory + font, text_font_size)
-        text_length = self.draw.textlength(text, title_font, font_size=text_font_size)
+        text_length = self.draw.textbbox((0,0), text, font=title_font)
+        text_length = text_length[2] - text_length[0]
         max_width = xys[1][0] - xys[0][0]
         max_width -= 2 * self.h_margin if margin else 0
         if text_length > max_width:
             r = text_length / max_width
-            text_font_size = text_font_size / r
+            text_font_size = int(text_font_size / r)
             title_font = ImageFont.truetype(self.police_elements_directory + font, text_font_size)
-            text_length = self.draw.textlength(text, title_font, font_size=text_font_size)
+            text_length = self.draw.textbbox((0,0), text, font=title_font)
+            text_length = text_length[2] - text_length[0]
         pxpy = (xys[0][0] + xys[1][0]) / 2 - text_length / 2, (xys[0][1] + xys[1][1]) / 2 - text_font_size * 4 / 6
         self.draw.text(pxpy, font=title_font, text=text, fill="black")
 
@@ -287,12 +289,16 @@ class ImageCardTransformer:
                         or last_word in effect_keywords_next and word.isdigit()):
                     font_to_use = bold_font
                 test_line = ' '.join(current_line + [word])
-                last_width, width = width, self.draw.textlength(test_line, font=font_to_use)
+                # last_width, width = width, self.draw.textlength(test_line, font=font_to_use)
+                text_length = self.draw.textbbox((0,0), test_line, font=font_to_use)
+                last_width, width = width, text_length[2] - text_length[0]
                 if width <= max_width:
                     current_line.append(word)
                 else:
                     lines.append(' '.join(current_line))
-                    width = self.draw.textlength(word, font=font_to_use)
+                    # width = self.draw.textlength(word, font=font_to_use)
+                    text_length = self.draw.textbbox((0,0), word, font=font_to_use)
+                    width = text_length[2] - text_length[0]
                     widths.append(last_width)
                     current_line = [word]
 

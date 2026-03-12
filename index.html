@@ -41,7 +41,8 @@
 <div class="controls">
     <!-- 3. Explorateur de fichiers -->
     <div>
-        <label for="fileInput">1. Choisir un fichier local :</label>
+        <label for="fileInput">1. Choisir votre fichier de données CSV:</label>
+        <!-- Retour à la sélection simple de fichier -->
         <input type="file" id="fileInput">
     </div>
 
@@ -113,14 +114,17 @@
             // Création du dossier de travail virtuel
             await pyodide.runPythonAsync(`
                 import os
-                if not os.path.exists("cards_elements"):
-                    os.makedirs("workdir")
-                os.chdir("workdir")
+                if not os.path.exists("card_elements"):
+                    os.makedirs("card_elements")
+                if not os.path.exists("cards"):
+                    os.makedirs("cards")
+                if not os.path.exists("images"):
+                    os.makedirs("images")
                 if not os.path.exists("fonts"):
                     os.makedirs("fonts")
                 if not os.path.exists("image_elements"):
                     os.makedirs("image_elements")
-                print("Dossier de travail prêt : /cards_elements")
+                print("Dossier de travail prêt : /card_elements")
             `);
 
             statusDiv.innerText = "📂 Création des dossiers virtuels...";
@@ -156,9 +160,7 @@
                     }
 
                     // --- CORRECTION 2 : Écriture robuste des bytes ---
-                    // On s'assure d'écrire dans le bon chemin (relatif au dossier de travail ou absolu)
-                    // Si vous voulez les mettre dans "workdir", préfixez le chemin :
-                    const targetPath = filePath; // Ou "workdir/" + filePath si nécessaire
+                    const targetPath = filePath;
 
                     // Conversion explicite en tableau d'octets standard pour éviter les erreurs de type
                     const byteArray = Array.from(bytes);
@@ -186,41 +188,77 @@
             // 4. Charger les modules Python (.py)
             const pyModules = ["CardImporter", "ImageCardTransformer", "PDFImporter", "GoogleSheetsCSVImporter", "main_js"];
 
+            let fullPythonScript = "";
+
             for (const mod of pyModules) {
-                const code = await (await fetch(`${mod}.py`)).text();
-                await pyodide.runPythonAsync(`
-                    import sys
-                    module = sys.modules.setdefault('${mod}', type(sys)('${mod}'))
-                    module.__file__ = '${mod}.py'
-                    exec(${JSON.stringify(code)}, module.__dict__)
-                `);
+                try {
+                    const response = await fetch(`${mod}.py`);
+                    if (!response.ok) throw new Error(`Fichier ${mod}.py introuvable`);
+                    const code = await response.text();
+
+                    // On ajoute le code au script global
+                    // On ajoute un commentaire pour savoir où on est en cas d'erreur
+                    fullPythonScript += `\n# --- DÉBUT DU FICHIER ${mod}.py ---\n`;
+                    fullPythonScript += code;
+                    fullPythonScript += `\n# --- FIN DU FICHIER ${mod}.py ---\n\n`;
+
+                    console.log(`✅ Code source chargé : ${mod}.py`);
+                } catch (e) {
+                    console.error(`Erreur chargement ${mod}:`, e);
+                    statusDiv.innerText = `Erreur: ${mod}.py manquant`;
+                    throw e;
+                }
+            }
+            // On exécute TOUT le code d'un coup dans le contexte global
+            statusDiv.innerText = "🚀 Exécution du moteur Python...";
+            try {
+                await pyodide.runPythonAsync(fullPythonScript);
+                console.log("✅ Script Python global exécuté avec succès.");
+            } catch (e) {
+                console.error("❌ Erreur d'exécution du script Python:", e);
+                statusDiv.innerText = `Erreur Python: ${e.message}`;
+                throw e;
             }
 
             // 5. Connecter le bouton
-            // On récupère la fonction depuis le module main_js qu'on vient de charger
-            // Ou si main_js s'exécute tout seul, il expose lancer_analyse dans globals
+            await new Promise(r => setTimeout(r, 100));
 
-            // On s'assure que le dossier de travail est bien 'workdir' pour l'utilisateur aussi
-            // Le code Python de main_js devra faire os.chdir('workdir') ou on le fait ici
+        console.log("🔍 Recherche de la fonction 'lancer_analyse' dans les globals...");
+        const pythonFunction = pyodide.globals.get("lancer_analyse");
 
-            const pythonFunction = pyodide.globals.get("lancer_analyse");
+        if (pythonFunction && typeof pythonFunction.call === 'function') {
+            console.log("✅ Fonction trouvée et valide !");
 
-            if (pythonFunction) {
-                startBtn.addEventListener('click', () => {
-                    try {
-                        pythonFunction();
-                    } catch (e) {
-                        console.error(e);
-                        logContainer.innerHTML += `<div class="log-error">Erreur: ${e}</div>`;
+            startBtn.addEventListener('click', () => {
+                try {
+                    // Appel de la fonction Python
+                    pythonFunction();
+                } catch (e) {
+                    console.error("Erreur lors de l'exécution Python:", e);
+                    const logContainer = document.getElementById("log-container");
+                    if(logContainer) {
+                        logContainer.innerHTML += `<div class="log-error">❌ Erreur d'exécution: ${e.message}</div>`;
+                        logContainer.scrollTop = logContainer.scrollHeight;
                     }
-                });
-                startBtn.disabled = false;
-                startBtn.innerText = "Lancer le traitement";
-                statusDiv.innerText = "✅ Prêt ! Sélectionnez votre dossier de données.";
-                statusDiv.style.color = "green";
-            } else {
-                throw new Error("Fonction 'lancer_analyse' introuvable.");
-            }
+                }
+            });
+
+            startBtn.disabled = false;
+            startBtn.innerText = "Lancer le traitement";
+            statusDiv.innerText = "✅ Prêt ! Sélectionnez votre dossier de données.";
+            statusDiv.style.color = "green";
+        } else {
+            console.error("❌ ÉCHEC CRITIQUE: La fonction 'lancer_analyse' est introuvable dans pyodide.globals.");
+            console.log("Contenu de globals (partiel):", Object.keys(pyodide.globals)); // Pour déboguer
+
+            statusDiv.innerText = "❌ Erreur interne: Fonction d'analyse introuvable.";
+            statusDiv.style.color = "red";
+            startBtn.disabled = true;
+            startBtn.innerText = "Erreur de chargement";
+
+            // Affichage d'un message d'aide dans la console
+            alert("Erreur technique : Le script Python n'a pas pu exporter la fonction de démarrage. Vérifiez la console (F12) pour les détails.");
+        }
 
         } catch (err) {
             statusDiv.innerText = "❌ Erreur critique : " + err.message;
