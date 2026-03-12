@@ -1,22 +1,10 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Outil de Traitement de Fichiers</title>
-
-    <!-- Chargement de PyScript (CSS et JS) -->
-    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css" />
-    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
-
-    <py-config>
-        [[fetch]]
-        from = "."
-        files = ["CardImporter.py", "GoogleSheetsCSVImporter.py", "ImageCardTransformer.py", "PDFImporter.py"]
-        [[packages]]
-        files = ["requests", "fpdf"]
-    </py-config>
-
+    <title>Lumina Card Exporter</title>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -94,7 +82,107 @@
     </style>
 </head>
 <body>
+<h1>Lumina Card Exporter</h1>
+<div id="output"></div>
+<script>
+    async function main() {
+        // Charger Pyodide
+        let pyodide = await loadPyodide({
+            indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/"
+        });
 
+        // Charger les packages nécessaires
+        await pyodide.loadPackage("pillow");
+        await pyodide.loadPackage("micropip");
+
+        await pyodide.runPythonAsync(`
+                import micropip
+                await micropip.install("fpdf2")
+            `);
+
+        await pyodide.runPythonAsync(`
+                import micropip
+                await micropip.install("requests")
+            `);
+
+        let cardImporterCode = await (await fetch("CardImporter.py")).text();
+        let imageCardTransformerCode = await (await fetch("ImageCardTransformer.py")).text();
+        let pdfImporter = await (await fetch("PDFImporter.py")).text();
+        let googleSheetsCSVImporter = await (await fetch("GoogleSheetsCSVImporter.py")).text();
+
+        await pyodide.runPythonAsync(`
+                import sys
+                from io import StringIO
+
+                # Créer un module virtuel "CardImporter"
+                module = sys.modules.setdefault('CardImporter', type(sys)('CardImporter'))
+                module.__file__ = 'CardImporter.py'
+                module.__package__ = ''
+
+                # Exécuter le code de CardImporter dans ce module
+                exec(${JSON.stringify(cardImporterCode)}, module.__dict__)
+            `);
+
+        document.getElementById("output").innerText = "Toutes ";
+
+        await pyodide.runPythonAsync(`
+                import sys
+                from io import StringIO
+
+                # Créer un module virtuel "ImageCardTransformer"
+                module = sys.modules.setdefault('ImageCardTransformer', type(sys)('ImageCardTransformer'))
+                module.__file__ = 'ImageCardTransformer.py'
+                module.__package__ = ''
+
+                # Exécuter le code de ImageCardTransformer dans ce module
+                exec(${JSON.stringify(imageCardTransformerCode)}, module.__dict__)
+            `);
+
+        document.getElementById("output").innerText = "Toutes les classes";
+
+        await pyodide.runPythonAsync(`
+                import sys
+                from io import StringIO
+
+                # Créer un module virtuel "PDFImporter"
+                module = sys.modules.setdefault('PDFImporter', type(sys)('PDFImporter'))
+                module.__file__ = 'PDFImporter.py'
+                module.__package__ = ''
+
+                # Exécuter le code de PDFImporter dans ce module
+                exec(${JSON.stringify(pdfImporter)}, module.__dict__)
+            `);
+
+        document.getElementById("output").innerText = "Toutes les classes chargées";
+
+        await pyodide.runPythonAsync(`
+                import sys
+                from io import StringIO
+
+                # Créer un module virtuel "GoogleSheetsCSVImporter"
+                module = sys.modules.setdefault('GoogleSheetsCSVImporter', type(sys)('GoogleSheetsCSVImporter'))
+                module.__file__ = 'GoogleSheetsCSVImporter.py'
+                module.__package__ = ''
+
+                # Exécuter le code de GoogleSheetsCSVImporter dans ce module
+                exec(${JSON.stringify(googleSheetsCSVImporter)}, module.__dict__)
+            `);
+
+        document.getElementById("output").innerText = "Toutes les classes chargées !!!!!";
+
+        let response = await fetch("main_js.py");
+        let script = await response.text();
+
+        // Exécuter le script
+        await pyodide.runPythonAsync(script);
+
+        // Afficher un message de succès
+        document.getElementById("output").innerText = "Script exécuté avec succès !";
+    }
+
+    // Lancer après le chargement de la page
+    window.onload = main;
+</script>
 <!-- 1. Titre -->
 <h1>Mon Outil d'Analyse Python</h1>
 
@@ -110,12 +198,6 @@
     <div>
         <label for="fileInput">1. Choisir un fichier local :</label>
         <input type="file" id="fileInput">
-    </div>
-
-    <!-- 4. Champ de lien -->
-    <div>
-        <label for="linkInput">2. Entrer un lien de référence (URL) :</label>
-        <input type="text" id="linkInput" placeholder="https://exemple.com/donnees">
     </div>
 
     <!-- 5. Bouton d'action -->
