@@ -82,20 +82,21 @@
 
 <h1>Lumina Card Exporter</h1>
 
+<!-- 2. Résumé -->
+<div class="summary">
+    <p>Télécharge un fichier local ou utilise le Google Sheet
+    <br> L'exécution peut prendre une vingtaine de secondes et ralentir le navigateur.
+    <br> A la fin de l'éxécution, télécharge le fichier en bas du "Journal d'exécution (Logs)" 📥</p>
+</div>
+
 <!-- Indicateur de statut -->
 <div id="status">⏳ Chargement de l'environnement Python... </div>
 <br>
 
-<!-- 2. Résumé -->
-<div class="summary">
-    <p>Cet outil vous permet de traiter un fichier local en le combinant avec une ressource distante.
-        Sélectionnez un fichier sur votre ordinateur, fournissez un lien de référence, et lancez l'analyse.</p>
-</div>
-
 <div class="controls">
     <!-- 3. Explorateur de fichiers -->
     <div>
-        <label for="fileInput">1. Choisir votre fichier de données CSV:</label>
+        <label for="fileInput">Option 1 : Choisir votre fichier CSV:</label>
         <!-- Retour à la sélection simple de fichier -->
         <input type="file" id="fileInput">
         <div id="file-info-container">
@@ -106,8 +107,8 @@
 
     <!-- 4. Champ de lien -->
     <div>
-        <label for="linkInput">2. Entrer un lien de référence (URL) :</label>
-        <input type="text" id="linkInput" placeholder="https://exemple.com/donnees">
+        <label for="linkInput">Option 2 : Entrer un lien de référence :</label>
+        <input type="text" id="linkInput" placeholder="https://docs.google.com/spreadsheets/d/********/export?format=csv">
     </div>
 
     <!-- 5. Bouton d'action (Désactivé au début) -->
@@ -128,6 +129,7 @@
     async function main() {
         const statusDiv = document.getElementById("status");
         const startBtn = document.getElementById("startBtn");
+        startBtn.disabled = true;
         const logContainer = document.getElementById("log-container");
 
         try {
@@ -303,7 +305,7 @@
 
             startBtn.disabled = false;
             startBtn.innerText = "Lancer le traitement";
-            statusDiv.innerText = "✅ Prêt ! Sélectionnez votre dossier de données.";
+            statusDiv.innerText = "✅ Prêt ! Sélectionnez vos données.";
             statusDiv.style.color = "green";
         } else {
             console.error("❌ ÉCHEC CRITIQUE: La fonction 'lancer_analyse' est introuvable dans pyodide.globals.");

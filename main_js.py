@@ -12,7 +12,6 @@ log_container = document.getElementById("log-container")
 start_btn = document.getElementById("startBtn")
 
 def log(msg, type="normal"):
-    # ... (votre fonction log existante) ...
     p = document.createElement("div")
     p.textContent = f"> {msg}"
     if type == "error": p.classList.add("log-error")
@@ -21,6 +20,7 @@ def log(msg, type="normal"):
     log_container.scrollTop = log_container.scrollHeight
 
 async def lancer_analyse(*args):
+    log_container.innerText = ""
     log("🚀 Démarrage du traitement...")
     start_btn.disabled = True
     start_btn.textContent = "Traitement en cours"
@@ -117,17 +117,8 @@ async def lancer_analyse(*args):
 
     log("✅ Tous les fichiers (Système + Utilisateur) sont réunis dans le dossier virtuel.")
 
-    # 3. Lancer vos classes
-    # Elles vont trouver à la fois les fichiers système (déjà là)
-    # et les fichiers utilisateur (qu'on vient de mettre)
     try:
-        try:
-            from PIL import __version__ as pillow_version
-            log(f"🔍 Version de Pillow dans Pyodide : {pillow_version}", "success")
-        except Exception as e:
-            log(f"Erreur lecture version: {e}", "error")
-
-        log("🔧 Initialisation de CardImporter...")
+        log("🔧 Importation des cartes...")
         ci = CardImporter()
         ci.parse(user_filename)
 
@@ -146,6 +137,7 @@ async def lancer_analyse(*args):
         pi = PDFImporter()
         pi.import_from_images_directory(pdf_filepath="resultat.pdf")
 
+        log("🧹 Nettoyage des fichiers temporaires...")
         # Reset
         ci.delete_pickles()
         ict.delete_images()
