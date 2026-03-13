@@ -4,10 +4,10 @@ from pyodide.ffi import create_proxy
 from js import document, FileReader, Blob, URL, Uint8Array
 import asyncio
 import os
-import re
 
 # DOM Elements
 file_input = document.getElementById("fileInput")
+link_input = document.getElementById("linkInput")
 log_container = document.getElementById("log-container")
 start_btn = document.getElementById("startBtn")
 
@@ -22,28 +22,19 @@ def log(msg, type="normal"):
 
 async def lancer_analyse(*args):
     log("🚀 Démarrage du traitement...")
+    start_btn.disabled = True
+    start_btn.textContent = "Traitement en cours"
 
-    # 1. S'assurer qu'on est dans le bon dossier
-    # Les fichiers système y sont déjà grâce au JS
-
-    # 2. Charger les fichiers UTILISATEUR dans ce même dossier
     files_list = file_input.files
-    if not files_list or files_list.length == 0:
-        log("⚠️ Aucun fichier utilisateur sélectionné.", "error")
-        return
-
-    if files_list and files_list.length > 0:
+    link = link_input.value.strip() if link_input else ""
+    if files_list and files_list.length == 1:
         file_obj = files_list.item(0)
-
         user_filename = file_obj.name
-
         log(f"📄 Fichier sélectionné : {user_filename}", "success")
 
         # Lire et écrire (Binaire)
         try:
-            log("reading...")
             # Lecture du contenu binaire
-            array_buffer = file_obj.arrayBuffer()
             reader = FileReader.new()
             loop = asyncio.get_event_loop()
             future = loop.create_future()
@@ -51,7 +42,6 @@ async def lancer_analyse(*args):
             def on_load(event):
                 # Le résultat est dans event.target.result (un ArrayBuffer)
                 result = event.target.result
-                # Conversion sûre en bytes Python
                 try:
                     # Pyodide convertit automatiquement ArrayBuffer en bytes via to_py()
                     bytes_data = result.to_py()
@@ -83,9 +73,47 @@ async def lancer_analyse(*args):
             start_btn.disabled = False
             start_btn.textContent = "Lancer le traitement"
             return
+
+    elif link != "":
+        user_filename = "to_export.csv"
+        log(f"🌐 Source : Lien distant '{link}'", "success")
+        log("⏳ Téléchargement du fichier distant...", "normal")
+
+        # On génère un nom de fichier par défaut pour le virtuel
+        if link.lower().endswith(".csv"):
+            user_filename = link.split("/")[-1]
+        elif link.lower().endswith(".json"):
+            user_filename = link.split("/")[-1]
+
+        try:
+            from js import fetch as js_fetch
+
+            response = await js_fetch(link)
+
+            if not response.ok:
+                raise Exception(f"Erreur HTTP {response.status}")
+
+            # Récupération du contenu binaire (arrayBuffer)
+            array_buffer = await response.arrayBuffer()
+
+            # Conversion en bytes Python
+            bytes_data = Uint8Array.new(array_buffer).to_py()
+
+            # Écriture dans le virtuel
+            with open(user_filename, "wb") as f:
+                f.write(bytes_data)
+
+            log(f"✅ Fichier distant téléchargé : '{user_filename}' ({len(bytes_data)} octets).", "success")
+            # file_obj =
+
+        except Exception as e:
+            log(f"❌ Erreur lors du téléchargement du lien : {e}", "error")
+            log("Vérifiez que le lien est accessible (CORS) et valide.", "error")
+            start_btn.disabled = False
+            start_btn.textContent = "Lancer le traitement"
+            return
     else:
-        log("⚠️ Aucun fichier sélectionné. Le traitement se lancera avec les données par défaut (si disponibles).", "error")
-        return
+        log("Aucun fichier ou lien trouvé", "error")
 
     log("✅ Tous les fichiers (Système + Utilisateur) sont réunis dans le dossier virtuel.")
 
@@ -117,6 +145,10 @@ async def lancer_analyse(*args):
         log("📄 Génération du PDF...")
         pi = PDFImporter()
         pi.import_from_images_directory(pdf_filepath="resultat.pdf")
+
+        # Reset
+        ci.delete_pickles()
+        ict.delete_images()
 
         # 4. Proposer le téléchargement
         if os.path.exists("resultat.pdf"):

@@ -22,6 +22,60 @@
         .log-error { color: #e74c3c; }
         .log-success { color: #2ecc71; }
         #status { margin-top: 10px; font-weight: bold; color: #e67e22; }
+        .file-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    #fileInput {
+        flex-grow: 1;
+    }
+
+    /* Le bloc qui affiche le nom du fichier et la croix */
+    #file-info-container {
+        display: none; /* Caché par défaut */
+        flex-grow: 1;
+        align-items: center;
+        justify-content: space-between;
+        background: #f0f0f0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        color: #333;
+    }
+
+    #file-name-display {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 80%;
+        font-weight: 500;
+    }
+
+    #file-remove-btn {
+        background: none;
+        border: none;
+        color: #e74c3c;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 0 5px;
+        line-height: 1;
+        transition: color 0.2s;
+    }
+
+    #file-remove-btn:hover {
+        color: #c0392b;
+        background: #fadbd8;
+        border-radius: 50%;
+    }
+
+    /* Classe utilitaire pour cacher l'input natif */
+    .hidden {
+        display: none !important;
+    }
     </style>
 </head>
 <body>
@@ -44,6 +98,10 @@
         <label for="fileInput">1. Choisir votre fichier de données CSV:</label>
         <!-- Retour à la sélection simple de fichier -->
         <input type="file" id="fileInput">
+        <div id="file-info-container">
+            <span id="file-name-display">nom_du_fichier.csv</span>
+            <button id="file-remove-btn" title="Retirer le fichier">&times;</button>
+        </div>
     </div>
 
     <!-- 4. Champ de lien -->
@@ -264,6 +322,56 @@
             statusDiv.innerText = "❌ Erreur critique : " + err.message;
             statusDiv.style.color = "red";
             console.error(err);
+        }
+
+        // --- GESTION DE L'AFFICHAGE DU FICHIER SÉLECTIONNÉ ---
+        const fileInput = document.getElementById("fileInput");
+        const fileInfoContainer = document.getElementById("file-info-container");
+        const fileNameDisplay = document.getElementById("file-name-display");
+        const fileRemoveBtn = document.getElementById("file-remove-btn");
+
+        // 1. Quand l'utilisateur choisit un fichier
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files && fileInput.files.length > 0) {
+                const fileName = fileInput.files[0].name;
+                fileNameDisplay.textContent = fileName;
+
+                // Basculer l'affichage
+                fileInput.classList.add('hidden');
+                fileInfoContainer.style.display = 'flex';
+
+                log(`📄 Fichier "${fileName}" sélectionné.`, "success");
+            } else {
+                // Si l'utilisateur annule la sélection
+                resetFileInput();
+            }
+        });
+
+        // 2. Quand l'utilisateur clique sur la croix
+        fileRemoveBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Éviter tout comportement par défaut
+            resetFileInput();
+            log("🗑️ Fichier retiré.", "normal");
+        });
+
+        // Fonction utilitaire pour réinitialiser
+        function resetFileInput() {
+            // La seule façon de vider un input file est de reset le form parent ou de mettre value = ""
+            // Mais value = "" est parfois bloqué. La méthode sûre est :
+            fileInput.value = "";
+
+            // Si cela ne suffit pas (selon navigateur), on peut cloner l'élément
+            if (fileInput.files.length > 0) {
+                const newInput = fileInput.cloneNode(true);
+                fileInput.parentNode.replaceChild(newInput, fileInput);
+                // Il faut mettre à jour la référence globale si elle est utilisée ailleurs
+                // Dans votre cas, main_js.py utilise document.getElementById, donc ça marchera tout seul
+                // car le nouvel élément aura le même ID.
+            }
+
+            // Rétablir l'affichage
+            fileInfoContainer.style.display = 'none';
+            fileInput.classList.remove('hidden');
         }
     }
     window.onload = main;
