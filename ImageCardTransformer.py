@@ -1,6 +1,8 @@
 import os
 import json
 
+import mmh3
+import datetime
 from PIL import Image, ImageDraw, ImageFont, ImageColor
 import pickle
 
@@ -45,8 +47,8 @@ identity_to_color = {
 }
 
 effect_keywords = ["Rage", "Dissipation", "Impulsion", "Camouflage", "Furtif", "Réactive", "Aura", "Interception",
-                   "Hymne", "Furie"]
-effect_keywords_next = ["Croissance", "Gel", "Soin", "Silence"]
+                   "Hymne", "Furie", "Gel", "Silence", "Corrosion"]
+effect_keywords_next = ["Croissance", "Consommer", "Soin"]
 
 class ImageCardTransformer:
     """
@@ -81,7 +83,7 @@ class ImageCardTransformer:
         self.h_limit_margin = self.width - self.h_margin
         self.margin_width = self.width - 2 * self.h_margin
 
-    def transform_card(self, card_path):
+    def transform_card(self, card_path, batch_id):
         card = from_pickle(self.cards_directory + card_path)
         if not card.title:
             return
@@ -173,8 +175,12 @@ class ImageCardTransformer:
         xys = (10, base_pos), int_tuple((100, self.height - 10))
         self.add_text_in_rectangle(f"{card.extension} - v{card.version}", self.version_font_size, xys, font=self.version_font_filename, margin=False, rectangle=False)
 
+        # Batch Id
+        xys = (self.width // 2 - 50, base_pos), int_tuple((self.width // 2 + 50, self.height - 10))
+        self.add_text_in_rectangle(f"{batch_id}", self.version_font_size, xys, font=self.version_font_filename, margin=False, rectangle=False)
+
         # Save
-        self.base.save(f"{self.image_directory}{card.id}.png")
+        self.base.save(f"{self.image_directory}{card.title}.png")
 
     def normalize_artwork(self, artwork, resize_dim, color):
         artwork = artwork.crop((0, 78, 500, 404))
@@ -314,8 +320,10 @@ class ImageCardTransformer:
             directory_path = self.cards_directory
         cards_paths = os.listdir(directory_path)
         i = 0
+        date = str(datetime.datetime.now())
+        batch_id = mmh3.mmh3_32_digest(date.encode('utf-8')).hex()
         for card_path in cards_paths:
-            self.transform_card(card_path)
+            self.transform_card(card_path, batch_id)
             i += 1
             if limit is not None and i >= limit:
                 break
