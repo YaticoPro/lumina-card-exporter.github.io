@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lumina Card Exporter</title>
     <!-- On garde Pyodide JS -->
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.29.3/full/pyodide.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; background-color: #f9f9f9; color: #333; }
         h1 { color: #2c3e50; }
@@ -96,7 +96,7 @@
 <div class="controls">
     <!-- 3. Explorateur de fichiers -->
     <div>
-        <label for="fileInput">Option 1 : Choisir votre fichier CSV:</label>
+        <label for="fileInput">Option 1 : Choisir votre fichier CSV</label>
         <!-- Retour à la sélection simple de fichier -->
         <input type="file" id="fileInput">
         <div id="file-info-container">
@@ -107,14 +107,24 @@
 
     <!-- 4. Champ de lien -->
     <div>
-        <label for="linkInput">Option 2 : Entrer un lien de référence :</label>
+        <label for="linkInput">Option 2 : Entrer un lien de référence</label>
         <input type="text" id="linkInput" placeholder="https://docs.google.com/spreadsheets/d/********/export?format=csv">
     </div>
 
-    <!-- 5. Bouton d'action (Désactivé au début) -->
+    <!-- 5. Demande de génération du fichier pdf -->
+    <div>
+        <input type="checkbox" id="pdf-check" checked>Générer le PDF</input>
+    </div>
+
+    <!-- 6. Demande de génération des images -->
+    <div>
+        <input type="checkbox" id="image-check" >Générer les images des cartes (format ZIP)</input>
+    </div>
+
+    <!-- 7. Bouton d'action (Désactivé au début) -->
     <button id="startBtn" disabled>Chargement...</button>
 
-    <!-- 6. Message d'erreur caché -->
+    <!-- 8. Message d'erreur caché -->
     <div id="error-message">
         ⚠️ Veuillez sélectionner un fichier ou entrer un lien valide avant de démarrer.
     </div>
@@ -135,13 +145,14 @@
         try {
             // 1. Charger Pyodide
             let pyodide = await loadPyodide({
-                indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/"
+                indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.3/full/"
             });
 
             // 2. Installer les packages
             statusDiv.innerText = "📦 Installation des dépendances...";
             await pyodide.loadPackage("pillow");
             await pyodide.loadPackage("micropip");
+            await pyodide.loadPackage("mmh3");
             await pyodide.runPythonAsync(`
                 import micropip
                 await micropip.install("fpdf2")
@@ -243,7 +254,7 @@
             // Charger tous les fichiers système en parallèle
             await Promise.all(systemFiles.map(loadSystemFile));
 
-            statusDiv.innerText = "✅ Fichiers système prêts. En attente de vos données...";
+            statusDiv.innerText = "✅ Fichiers système prêts. Chargement des modules...";
 
             // 4. Charger les modules Python (.py)
             const pyModules = ["CardImporter", "ImageCardTransformer", "PDFImporter", "GoogleSheetsCSVImporter", "main_js"];
@@ -342,7 +353,7 @@
                 fileInput.classList.add('hidden');
                 fileInfoContainer.style.display = 'flex';
 
-                log(`📄 Fichier "${fileName}" sélectionné.`, "success");
+                console.log(`📄 Fichier "${fileName}" sélectionné.`, "success");
             } else {
                 // Si l'utilisateur annule la sélection
                 resetFileInput();
@@ -353,7 +364,7 @@
         fileRemoveBtn.addEventListener('click', (e) => {
             e.preventDefault(); // Éviter tout comportement par défaut
             resetFileInput();
-            log("🗑️ Fichier retiré.", "normal");
+            console.log("🗑️ Fichier retiré.", "normal");
         });
 
         // Fonction utilitaire pour réinitialiser

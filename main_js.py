@@ -4,12 +4,15 @@ from pyodide.ffi import create_proxy
 from js import document, FileReader, Blob, URL, Uint8Array
 import asyncio
 import os
+from zipfile import ZipFile
 
 # DOM Elements
 file_input = document.getElementById("fileInput")
 link_input = document.getElementById("linkInput")
 log_container = document.getElementById("log-container")
 start_btn = document.getElementById("startBtn")
+pdf_check = document.getElementById("pdf-check")
+image_check = document.getElementById("image-check")
 
 def log(msg, type="normal"):
     p = document.createElement("div")
@@ -133,22 +136,36 @@ async def lancer_analyse(*args):
         ict = ImageCardTransformer()
         ict.transform_cards()
 
-        log("📄 Génération du PDF...")
-        pi = PDFImporter()
-        pi.import_from_images_directory(pdf_filepath="resultat.pdf")
+        if pdf_check.checked:
+            log("📄 Génération du PDF...")
+            pi = PDFImporter()
+            pi.import_from_images_directory(pdf_filepath="resultat.pdf")
+
+        if image_check.checked:
+            log("🗂️ Génération du Zip...")
+            with ZipFile("resultat.zip", 'w') as zip_file:
+                cards_paths = os.listdir(ict.image_directory)
+                for card_path in cards_paths:
+                    zip_file.write(os.path.join(ict.image_directory, card_path))
+                if pdf_check.checked:
+                    zip_file.write("resultat.pdf")
 
         log("🧹 Nettoyage des fichiers temporaires...")
+
         # Reset
         ci.delete_pickles()
         ict.delete_images()
 
         # 4. Proposer le téléchargement
-        if os.path.exists("resultat.pdf"):
+        pdf_bytes_python = None
+        if os.path.exists("resultat.zip"):
+            with open("resultat.zip", "rb") as f:
+                pdf_bytes_python = f.read()
+        elif os.path.exists("resultat.pdf"):
             with open("resultat.pdf", "rb") as f:
                 pdf_bytes_python = f.read()
 
-            log(f"📄 PDF généré : {len(pdf_bytes_python)} octets.", "success")
-
+        if pdf_bytes_python is not None:
             # 2. CONVERSION CRUCIALE : Python bytes -> JS Uint8Array
             # Pyodide fournit un utilitaire pour cela
             try:
@@ -168,7 +185,10 @@ async def lancer_analyse(*args):
 
             link = document.createElement("a")
             link.href = url
-            link.download = "resultat.pdf"
+            if image_check.checked:
+                link.download = "resultat.zip"
+            else:
+                link.download = "resultat.pdf"
             link.textContent = "📥 Télécharger le résultat"
             link.style.color = "#3498db"
             link.style.display = "block"
@@ -177,7 +197,7 @@ async def lancer_analyse(*args):
             log("✅ Traitement terminé avec succès !")
             log_container.appendChild(link)
         else:
-            log("⚠️ Le PDF n'a pas été généré.", "error")
+            log("⚠️ Aucun fichier n'a pas été généré.", "error")
 
     except Exception as e:
         import traceback

@@ -1,9 +1,11 @@
 import os
+from zipfile import ZipFile
 
 from CardImporter import CardImporter
 from GoogleSheetsCSVImporter import GoogleSheetsCSVImporter
 from ImageCardTransformer import ImageCardTransformer
 from PDFImporter import PDFImporter
+import zipfile
 import argparse
 
 def main():
@@ -20,7 +22,8 @@ def main():
     parser.add_argument('-pdf-filepath', '--pp', type=str, default=None, help="The path of the pdf file to store cards")
     parser.add_argument('-delete-pickle-after-run', '--dp', type=bool, default=False ,help="The path of the csv file", action=argparse.BooleanOptionalAction)
     parser.add_argument('-delete-images-after-run', '--di', type=bool, default=False ,help="The path of the csv file", action=argparse.BooleanOptionalAction)
-    parser.add_argument('-refresh', '--refresh', type=bool, default=False ,help="Refresh exported csv file")
+    parser.add_argument('-refresh', '--refresh', type=bool, default=False ,help="The path of the csv file", action=argparse.BooleanOptionalAction)
+    parser.add_argument('-zip', '--zip', type=bool, default=False ,help="The path of the csv file", action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
 
@@ -51,6 +54,14 @@ def main():
     ict.transform_cards()
     pdf_filepath = args.pp if args.pp is not None else defaut_file+".pdf"
     pi.import_from_images_directory(pdf_filepath=pdf_filepath, example=args.test)
+
+    # If Zipfile is asked
+    if args.zip is not None:
+        with ZipFile(defaut_file+".zip", 'w') as zip_file:
+            cards_paths = os.listdir(ict.image_directory)
+            for card_path in cards_paths:
+                zip_file.write(os.path.join(ict.image_directory, card_path))
+            zip_file.write(defaut_file+".pdf")
 
     # After Reset if asked
     if args.dp:
