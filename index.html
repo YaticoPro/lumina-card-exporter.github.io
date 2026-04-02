@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lumina Card Exporter</title>
-    <!-- On garde Pyodide JS -->
     <script src="https://cdn.jsdelivr.net/pyodide/v0.29.3/full/pyodide.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; background-color: #f9f9f9; color: #333; }
@@ -32,9 +31,25 @@
     #fileInput {
         flex-grow: 1;
     }
+    #artworkFileInput {
+        flex-grow: 1;
+    }
 
     /* Le bloc qui affiche le nom du fichier et la croix */
     #file-info-container {
+        display: none; /* Caché par défaut */
+        flex-grow: 1;
+        align-items: center;
+        justify-content: space-between;
+        background: #f0f0f0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        color: #333;
+    }
+
+    #artwork-file-info-container {
         display: none; /* Caché par défaut */
         flex-grow: 1;
         align-items: center;
@@ -55,6 +70,14 @@
         font-weight: 500;
     }
 
+    #artwork-file-name-display {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 80%;
+        font-weight: 500;
+    }
+
     #file-remove-btn {
         background: none;
         border: none;
@@ -66,7 +89,24 @@
         transition: color 0.2s;
     }
 
+    #artwork-file-remove-btn {
+        background: none;
+        border: none;
+        color: #e74c3c;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 0 5px;
+        line-height: 1;
+        transition: color 0.2s;
+    }
+
     #file-remove-btn:hover {
+        color: #c0392b;
+        background: #fadbd8;
+        border-radius: 50%;
+    }
+
+    #artwork-file-remove-btn:hover {
         color: #c0392b;
         background: #fadbd8;
         border-radius: 50%;
@@ -93,42 +133,65 @@
 <div id="status">⏳ Chargement de l'environnement Python... </div>
 <br>
 
-<div class="controls">
-    <!-- 3. Explorateur de fichiers -->
+<ol class="controls">
+    <li>
+    <label> Choix du fichier </label>
     <div>
-        <label for="fileInput">Option 1 : Choisir votre fichier CSV</label>
-        <!-- Retour à la sélection simple de fichier -->
+        <label for="fileInput"> Fichier CSV</label>
         <input type="file" id="fileInput">
         <div id="file-info-container">
             <span id="file-name-display">nom_du_fichier.csv</span>
             <button id="file-remove-btn" title="Retirer le fichier">&times;</button>
         </div>
-    </div>
-
-    <!-- 4. Champ de lien -->
-    <div>
-        <label for="linkInput">Option 2 : Entrer un lien de référence</label>
+        <label for="linkInput"> Lien Google Sheet</label>
         <input type="text" id="linkInput" placeholder="https://docs.google.com/spreadsheets/d/********/export?format=csv">
     </div>
-
-    <!-- 5. Demande de génération du fichier pdf -->
+    </li>
+    <li>
     <div>
-        <input type="checkbox" id="pdf-check" checked>Générer le PDF</input>
+        <label> Options de conception de carte </label>
+        <input type="checkbox" id="qr-check" > Insérer un QR code (du titre de la carte)</input>
+        <br><br>
+        <label for="artworkFileInput"> Zip des artworks </label>
+        <div>Les noms des images doivent correspondre au titres des cartes</div>
+        <input type="file" id="artworkFileInput">
+        <div id="artwork-file-info-container">
+            <span id="artwork-file-name-display">nom_du_fichier.zip</span>
+            <button id="artwork-file-remove-btn" title="Retirer le fichier">&times;</button>
+        </div>
+        <br><br>
+        <label for="colors"> Couleur de fond des cartes</label>
+        <select id="colors">
+            <option value="" selected> Couleur de l'identité de la carte</option>
+            <option value="white">Blanc</option>
+            <option value="beige">Beige</option>
+            <option value="grey">Gris</option>
+        </select>
     </div>
-
-    <!-- 6. Demande de génération des images -->
+    </li>
+    <li>
     <div>
-        <input type="checkbox" id="image-check" >Générer les images des cartes (format ZIP)</input>
-    </div>
+        <label> Options de génération des fichiers </label>
+        <div>
+            <input type="checkbox" id="pdf-check" checked> Générer le PDF</input>
+        </div>
 
-    <!-- 7. Bouton d'action (Désactivé au début) -->
+        <!-- 6. Demande de génération des images -->
+        <div>
+            <input type="checkbox" id="image-check" > Générer les images des cartes (format ZIP)</input>
+        </div>
+    </div>
+    </li>
+    <!-- 8. Bouton d'action (Désactivé au début) -->
     <button id="startBtn" disabled>Chargement...</button>
 
-    <!-- 8. Message d'erreur caché -->
+    <!-- 9. Message d'erreur caché -->
     <div id="error-message">
         ⚠️ Veuillez sélectionner un fichier ou entrer un lien valide avant de démarrer.
     </div>
-</div>
+</ol>
+
+<div id="user-message"></div>
 
 <!-- 7. Zone de logs -->
 <h3>Journal d'exécution (Logs)</h3>
@@ -157,6 +220,7 @@
                 import micropip
                 await micropip.install("fpdf2")
                 await micropip.install("requests")
+                await micropip.install("qrcode")
             `);
 
             // 3. Charger les fichiers SYSTÈME (Projet GitHub)
@@ -185,17 +249,15 @@
             // Création du dossier de travail virtuel
             await pyodide.runPythonAsync(`
                 import os
-                if not os.path.exists("card_elements"):
-                    os.makedirs("card_elements")
+                # Création d'autres dossiers à la racine si nécessaire (pour le traitement)
                 if not os.path.exists("cards"):
                     os.makedirs("cards")
-                if not os.path.exists("images"):
+                if not os.path.exists("images"): # Dossier de sortie ou temporaire à la racine
                     os.makedirs("images")
-                if not os.path.exists("fonts"):
-                    os.makedirs("fonts")
-                if not os.path.exists("image_elements"):
-                    os.makedirs("image_elements")
-                print("Dossier de travail prêt : /card_elements")
+                if not os.path.exists("artworks"): # Dossier de sortie ou temporaire à la racine
+                    os.makedirs("artworks")
+
+                print("📂 Dossiers virtuels prêts.")
             `);
 
             statusDiv.innerText = "📂 Création des dossiers virtuels...";
@@ -242,8 +304,6 @@
                     // Essayons d'abord l'Uint8Array direct, c'est le plus standard.
                     pyodide.FS.writeFile(targetPath, bytes);
 
-                    console.log(`✅ Système chargé: ${targetPath}`);
-
                 } catch (e) {
                     console.error(`❌ Erreur chargement système ${filePath}:`, e);
                     statusDiv.innerText = `Erreur: ${e.message}`;
@@ -257,7 +317,7 @@
             statusDiv.innerText = "✅ Fichiers système prêts. Chargement des modules...";
 
             // 4. Charger les modules Python (.py)
-            const pyModules = ["CardImporter", "ImageCardTransformer", "PDFImporter", "GoogleSheetsCSVImporter", "main_js"];
+            const pyModules = ["QRCodeStamper", "CardImporter", "ImageCardTransformer", "PDFImporter", "GoogleSheetsCSVImporter", "main_js"];
 
             let fullPythonScript = "";
 
@@ -273,7 +333,6 @@
                     fullPythonScript += code;
                     fullPythonScript += `\n# --- FIN DU FICHIER ${mod}.py ---\n\n`;
 
-                    console.log(`✅ Code source chargé : ${mod}.py`);
                 } catch (e) {
                     console.error(`Erreur chargement ${mod}:`, e);
                     statusDiv.innerText = `Erreur: ${mod}.py manquant`;
@@ -385,6 +444,56 @@
             // Rétablir l'affichage
             fileInfoContainer.style.display = 'none';
             fileInput.classList.remove('hidden');
+        }
+
+        // --- GESTION DE L'AFFICHAGE DU FICHIER ZIP ---
+        const artworkFileInput = document.getElementById("artworkFileInput");
+        const artworkFileInfoContainer = document.getElementById("artwork-file-info-container");
+        const artworkFileNameDisplay = document.getElementById("artwork-file-name-display");
+        const artworkFileRemoveBtn = document.getElementById("artwork-file-remove-btn");
+
+        // 1. Quand l'utilisateur choisit un fichier
+        artworkFileInput.addEventListener('change', () => {
+            if (artworkFileInput.files && artworkFileInput.files.length > 0) {
+                const artworkFileName = artworkFileInput.files[0].name;
+                artworkFileNameDisplay.textContent = artworkFileName;
+
+                // Basculer l'affichage
+                artworkFileInput.classList.add('hidden');
+                artworkFileInfoContainer.style.display = 'flex';
+
+                console.log(`📄 Fichier "${artworkFileName}" sélectionné.`, "success");
+            } else {
+                // Si l'utilisateur annule la sélection
+                resetArtworkFileInput();
+            }
+        });
+
+        // 2. Quand l'utilisateur clique sur la croix
+        artworkFileRemoveBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Éviter tout comportement par défaut
+            resetArtworkFileInput();
+            console.log("🗑️ Fichier retiré.", "normal");
+        });
+
+        // Fonction utilitaire pour réinitialiser
+        function resetArtworkFileInput() {
+            // La seule façon de vider un input file est de reset le form parent ou de mettre value = ""
+            // Mais value = "" est parfois bloqué. La méthode sûre est :
+            artworkFileInput.value = "";
+
+            // Si cela ne suffit pas (selon navigateur), on peut cloner l'élément
+            if (artworkFileInput.files.length > 0) {
+                const newInput = artworkFileInput.cloneNode(true);
+                artworkFileInput.parentNode.replaceChild(newInput, artworkFileInput);
+                // Il faut mettre à jour la référence globale si elle est utilisée ailleurs
+                // Dans votre cas, main_js.py utilise document.getElementById, donc ça marchera tout seul
+                // car le nouvel élément aura le même ID.
+            }
+
+            // Rétablir l'affichage
+            artworkFileInfoContainer.style.display = 'none';
+            artworkFileInput.classList.remove('hidden');
         }
     }
     window.onload = main;

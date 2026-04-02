@@ -7,12 +7,12 @@ import os
 from zipfile import ZipFile
 
 # DOM Elements
-file_input = document.getElementById("fileInput")
+csv_file_input = document.getElementById("fileInput")
+artwork_file_input = document.getElementById("artworkFileInput")
 link_input = document.getElementById("linkInput")
 log_container = document.getElementById("log-container")
+user_message = document.getElementById("user-message")
 start_btn = document.getElementById("startBtn")
-pdf_check = document.getElementById("pdf-check")
-image_check = document.getElementById("image-check")
 
 def log(msg, type="normal"):
     p = document.createElement("div")
@@ -22,14 +22,9 @@ def log(msg, type="normal"):
     log_container.appendChild(p)
     log_container.scrollTop = log_container.scrollHeight
 
-async def lancer_analyse(*args):
-    log_container.innerText = ""
-    log("🚀 Démarrage du traitement...")
-    start_btn.disabled = True
-    start_btn.textContent = "Traitement en cours"
-
+async def handle_file(file_input):
     files_list = file_input.files
-    link = link_input.value.strip() if link_input else ""
+    print(f"files : {len(files_list)}, {files_list.item(0).name}")
     if files_list and files_list.length == 1:
         file_obj = files_list.item(0)
         user_filename = file_obj.name
@@ -69,54 +64,95 @@ async def lancer_analyse(*args):
                 f.write(bytes_data)
 
             log(f"✅ Fichier '{user_filename}' importé avec succès ({len(bytes_data)} octets).", "success")
-
+            return user_filename
 
         except Exception as e:
             log(f"❌ Erreur lors de la lecture du fichier : {e}", "error")
             start_btn.disabled = False
             start_btn.textContent = "Lancer le traitement"
-            return
+            return None
+    return None
 
-    elif link != "":
-        user_filename = "to_export.csv"
-        log(f"🌐 Source : Lien distant '{link}'", "success")
-        log("⏳ Téléchargement du fichier distant...", "normal")
 
-        # On génère un nom de fichier par défaut pour le virtuel
-        if link.lower().endswith(".csv"):
-            user_filename = link.split("/")[-1]
-        elif link.lower().endswith(".json"):
-            user_filename = link.split("/")[-1]
+async def handle_distant_file(link):
+    user_filename = "to_export.csv"
+    log(f"🌐 Source : Lien distant '{link}'", "success")
+    log("⏳ Téléchargement du fichier distant...", "normal")
 
-        try:
-            from js import fetch as js_fetch
+    # On génère un nom de fichier par défaut pour le virtuel
+    if link.lower().endswith(".csv"):
+        user_filename = link.split("/")[-1]
+    elif link.lower().endswith(".json"):
+        user_filename = link.split("/")[-1]
 
-            response = await js_fetch(link)
+    try:
+        from js import fetch as js_fetch
 
-            if not response.ok:
-                raise Exception(f"Erreur HTTP {response.status}")
+        response = await js_fetch(link)
 
-            # Récupération du contenu binaire (arrayBuffer)
-            array_buffer = await response.arrayBuffer()
+        if not response.ok:
+            raise Exception(f"Erreur HTTP {response.status}")
 
-            # Conversion en bytes Python
-            bytes_data = Uint8Array.new(array_buffer).to_py()
+        # Récupération du contenu binaire (arrayBuffer)
+        array_buffer = await response.arrayBuffer()
 
-            # Écriture dans le virtuel
-            with open(user_filename, "wb") as f:
-                f.write(bytes_data)
+        # Conversion en bytes Python
+        bytes_data = Uint8Array.new(array_buffer).to_py()
 
-            log(f"✅ Fichier distant téléchargé : '{user_filename}' ({len(bytes_data)} octets).", "success")
-            # file_obj =
+        # Écriture dans le virtuel
+        with open(user_filename, "wb") as f:
+            f.write(bytes_data)
 
-        except Exception as e:
-            log(f"❌ Erreur lors du téléchargement du lien : {e}", "error")
-            log("Vérifiez que le lien est accessible (CORS) et valide.", "error")
-            start_btn.disabled = False
-            start_btn.textContent = "Lancer le traitement"
-            return
-    else:
-        log("Aucun fichier ou lien trouvé", "error")
+        log(f"✅ Fichier distant téléchargé : '{user_filename}' ({len(bytes_data)} octets).", "success")
+        return user_filename
+
+    except Exception as e:
+        log(f"❌ Erreur lors du téléchargement du lien : {e}", "error")
+        log("Vérifiez que le lien est accessible (CORS) et valide.", "error")
+        start_btn.disabled = False
+        start_btn.textContent = "Lancer le traitement"
+        return None
+
+async def lancer_analyse(*args):
+    log_container.innerText = ""
+    log("🚀 Démarrage du traitement...")
+    start_btn.disabled = True
+    start_btn.textContent = "Traitement en cours"
+
+    qr_check = document.getElementById("qr-check").checked
+    default_fill_color = document.getElementById("colors").value
+    pdf_check = document.getElementById("pdf-check").checked
+    image_check = document.getElementById("image-check").checked
+
+    print(f"Nb fichiers csv : {len(csv_file_input.files)} \nValeur du lien : {link_input.value} \nQr code : {qr_check} "
+          f"\nNb fichiers artwork : {len(artwork_file_input.files)} \nCouleur (si vide, identité) : {default_fill_color} "
+          f"\nPDF : {pdf_check} \nImage (Zip) : {image_check}")
+
+    if not len(csv_file_input.files) and not link_input.value:
+        start_btn.disabled = False
+        start_btn.textContent = "Lancer le traitement"
+        user_message.innerText = "Sélectionnez un fichier ou un lien"
+        log("File or link not selected", "error")
+        raise Exception("Fichier ou lien non sélectionné")
+
+    user_filename = await handle_file(csv_file_input)
+    if not user_filename:
+        link = link_input.value.strip() if link_input else ""
+        if not link:
+            log("Aucun fichier ou lien trouvé", "error")
+        else:
+            user_filename = await handle_distant_file(link)
+
+    print(f"artwork files {bool(artwork_file_input.files)}")
+    if artwork_file_input.files:
+        artwork_link = await handle_file(artwork_file_input)
+        print(artwork_link, bool(artwork_link))
+        if artwork_link:
+            with ZipFile(artwork_link, 'r') as zip_file:
+                print(f"nl ? {zip_file.namelist()}")
+                zip_file.extractall(path="card_elements")
+            log("Artworks importés")
+    print(os.listdir("card_elements"))
 
     log("✅ Tous les fichiers (Système + Utilisateur) sont réunis dans le dossier virtuel.")
 
@@ -134,20 +170,20 @@ async def lancer_analyse(*args):
 
         log("🎨 Transformation des images...")
         ict = ImageCardTransformer()
-        ict.transform_cards()
+        ict.transform_cards(qr_code=qr_check, default_fill_color=default_fill_color)
 
-        if pdf_check.checked:
+        if pdf_check:
             log("📄 Génération du PDF...")
             pi = PDFImporter()
             pi.import_from_images_directory(pdf_filepath="resultat.pdf")
 
-        if image_check.checked:
+        if image_check:
             log("🗂️ Génération du Zip...")
             with ZipFile("resultat.zip", 'w') as zip_file:
                 cards_paths = os.listdir(ict.image_directory)
                 for card_path in cards_paths:
                     zip_file.write(os.path.join(ict.image_directory, card_path))
-                if pdf_check.checked:
+                if pdf_check:
                     zip_file.write("resultat.pdf")
 
         log("🧹 Nettoyage des fichiers temporaires...")
@@ -185,7 +221,7 @@ async def lancer_analyse(*args):
 
             link = document.createElement("a")
             link.href = url
-            if image_check.checked:
+            if image_check:
                 link.download = "resultat.zip"
             else:
                 link.download = "resultat.pdf"
@@ -207,7 +243,7 @@ async def lancer_analyse(*args):
     finally:
         start_btn.disabled = False
         start_btn.textContent = "Lancer le traitement"
-        os.chdir("/") # Retour à la racine
+        # os.chdir("/") # Retour à la racine
 
 try:
     # On crée le proxy

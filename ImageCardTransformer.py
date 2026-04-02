@@ -9,6 +9,9 @@ import pickle
 if not 'Card' in dir():
     from CardImporter import Card
 
+if not 'QRCodeStamper' in dir():
+    from QRCodeStamper import QRCodeStamper
+
 def from_pickle(pickle_file) -> Card:
     with open(pickle_file, "rb") as f:
         return pickle.load(f)
@@ -57,15 +60,18 @@ class ImageCardTransformer:
     base, draw, width, height, cost_image_size, cost_gap, h_margin, v_margin, h_limit_margin, margin_width = [None]*10
     title_font_size, effect_font_size, image_height, effect_font_filename, effect_bold_effect_filename, effect_height = [None]*6
     version_font_size, version_font_filename, title_font_filename = [None]*3
+    fill_color = None
     image_directory = "./images/"
     cards_directory = "./cards/"
     elements_directory = "./card_elements/"
     image_elements_directory = elements_directory + "image_elements/"
     police_elements_directory = elements_directory + "fonts/"
+    artworks_directory = elements_directory + "artworks/"
     json_config = elements_directory + "/config.json"
 
     def __init__(self):
         self.reset_base()
+        self.qrcs = QRCodeStamper()
 
     def reset_base(self):
         self.base = Image.open(f"{self.image_elements_directory}image_background.png")
@@ -83,7 +89,7 @@ class ImageCardTransformer:
         self.h_limit_margin = self.width - self.h_margin
         self.margin_width = self.width - 2 * self.h_margin
 
-    def transform_card(self, card_path, batch_id):
+    def transform_card(self, card_path, batch_id, qr_code, default_fill_color):
         card = from_pickle(self.cards_directory + card_path)
         if not card.title:
             return
@@ -91,8 +97,8 @@ class ImageCardTransformer:
         # Frame
         xys = (0, 0), (self.width - 5, self.height - 2)
         identity_polygons = [[[0,0,744,0,744,1039,0,1039]],
-                        [[0,0,744,0,0,1039],[744,0,0,1039,744,1039]],
-                        [[0,0,744,0,0,520],[744,0,744,520,0,1039,0,520],[744,520,744,1039,0,1039]]]
+                             [[0,0,744,0,0,1039],[744,0,0,1039,744,1039]],
+                             [[0,0,744,0,0,520],[744,0,744,520,0,1039,0,520],[744,520,744,1039,0,1039]]]
         nb_identity = len(card.identity)
         if nb_identity > 0:
             for i in range(nb_identity):
@@ -100,25 +106,50 @@ class ImageCardTransformer:
         else:
             self.draw.rectangle(xys, outline="black", fill="white", width=3)
 
+        if default_fill_color:
+            self.fill_color = default_fill_color
+        else:
+            self.fill_color = self.base.resize((1, 1)).getpixel((0, 0))
+            light_up = 40
+            self.fill_color = (min(255,self.fill_color[0]+light_up),min(255,self.fill_color[1]+light_up),min(255,self.fill_color[2]+light_up))
+
+        artwork = False
+        try:
+            artwork_path = self.artworks_directory + card.title + ".png"
+            print(f"ap : {artwork_path}")
+            img = Image.open(artwork_path).resize((self.width, self.height))
+            self.base.paste(img, (0,0))
+            self.draw.rectangle((0,0,self.width-1,self.height-2), outline="black")
+            artwork = True
+        except FileNotFoundError:
+            pass
+
         # Title
         xys = (self.h_margin, self.v_margin), int_tuple((self.h_limit_margin, self.v_margin + self.title_font_size * 4 / 3))
         self.add_text_in_rectangle(f"{card.title}", self.title_font_size, xys)
 
-        # Artwork / Identity
+        # Identity
         base_pos = xys[1][1] + self.v_margin
         xys = (self.h_margin, base_pos), int_tuple((self.h_limit_margin, base_pos + self.image_height))
-        self.draw.rectangle(xys, outline="black", fill="white")
+        if not artwork:
+            self.draw.rectangle(xys, fill=self.fill_color)
 
-        resize_dim = (xys[1][0]-xys[0][0]-10, xys[1][1]-xys[0][1]-10)
-        nb_identities = len(card.identity)
+            resize_dim = (xys[1][0]-xys[0][0]-10, xys[1][1]-xys[0][1]-10)
+            nb_identities = len(card.identity)
 
-        resize_dim_multi = int_tuple((resize_dim[0] / nb_identities, resize_dim[1] / nb_identities))
-        offset_nb_identities = [[0], [-50, 50], [-50,20,90]]
-        for i, identity in enumerate(card.identity):
-            artwork = Image.open(f"{self.image_elements_directory}{identity_to_image[identity]}.png")
-            artwork, binary = self.normalize_artwork(artwork, resize_dim_multi, color=identity_to_color[identity])
-            artwork.save("test.png")
-            self.base.paste(artwork, int_tuple((xys[0][0]+5 + resize_dim_multi[0] * i, (xys[0][1]+xys[1][1])/2 - resize_dim_multi[1] / 2 + offset_nb_identities[nb_identities-1][i])), mask=binary)
+            resize_dim_multi = int_tuple((resize_dim[0] / nb_identities, resize_dim[1] / nb_identities))
+            offset_nb_identities = [[0], [-50, 50], [-50,20,90]]
+            for i, identity in enumerate(card.identity):
+                artwork = Image.open(f"{self.image_elements_directory}{identity_to_image[identity]}.png")
+                artwork, binary = self.normalize_artwork(artwork, resize_dim_multi, color=identity_to_color[identity])
+                self.base.paste(artwork, int_tuple((xys[0][0]+5 + resize_dim_multi[0] * i, (xys[0][1]+xys[1][1])/2 - resize_dim_multi[1] / 2 + offset_nb_identities[nb_identities-1][i])), mask=binary)
+
+        # QR Code
+        if qr_code:
+            resize_dim_qr = (100,100)
+            aux_qr_code_file_path = self.qrcs.stamp_qr_code(card.title, self.base.convert("RGBA"), resize_dim_qr, (xys[0][0], xys[1][1]-resize_dim_qr[1]))
+            qrcode_img = Image.open(aux_qr_code_file_path).resize(resize_dim_qr).convert("RGBA")
+            self.base.paste(qrcode_img, (xys[0][0], xys[1][1]-resize_dim_qr[1]), mask=qrcode_img)
 
         # Swiftness
         if card.swiftness == "Rapide":
@@ -135,7 +166,7 @@ class ImageCardTransformer:
         # Effect
         base_pos = xys[1][1] + self.v_margin
         xys = (self.h_margin, base_pos), (self.h_limit_margin, base_pos + self.effect_height)
-        self.draw.rectangle(xys, outline="black", fill="white")
+        self.draw.rectangle(xys, outline="black", fill=self.fill_color)
         middle = int_tuple(((xys[0][0]+xys[1][0])/2, (xys[0][1]+xys[1][1])/2))
         max_width = xys[1][0] - xys[0][0] - 2 * self.h_margin
         self.custom_multiline_text(card.effect, middle, self.effect_font_filename, self.effect_bold_effect_filename, max_width, fill="black")
@@ -147,6 +178,11 @@ class ImageCardTransformer:
             self.add_text_in_rectangle(f"{card.attack}  /  {card.defense}", self.title_font_size, xys)
 
         # Cost
+        if artwork:
+            outline = "black"
+        else:
+            outline = None
+        self.draw.rectangle(((35,115),(35+len(dict(card.cost))*self.cost_gap,115 + self.cost_image_size)), outline=outline, fill=self.fill_color)
         for i, cost in enumerate(card.cost):
             element, value = cost
             element_image = Image.open(self.image_elements_directory + identity_to_image[cost_to_identity[element]] + ".png")
@@ -246,9 +282,7 @@ class ImageCardTransformer:
 
             y_start += line_height
 
-    def add_text_in_rectangle(self, text, text_font_size, xys, font=None, rectangle=True, margin=True):
-        if rectangle:
-            self.draw.rectangle(xys, outline="black", fill="white")
+    def add_text_in_rectangle(self, text, text_font_size, xys, font=None, rectangle=True, margin=True, flex=False):
         if font is None:
             font = self.title_font_filename
         title_font = ImageFont.truetype(self.police_elements_directory + font, text_font_size)
@@ -263,6 +297,12 @@ class ImageCardTransformer:
             text_length = self.draw.textbbox((0,0), text, font=title_font)
             text_length = text_length[2] - text_length[0]
         pxpy = (xys[0][0] + xys[1][0]) / 2 - text_length / 2, (xys[0][1] + xys[1][1]) / 2 - text_font_size * 4 / 6
+        if rectangle:
+            if not flex:
+                self.draw.rectangle(xys, outline="black", fill=self.fill_color)
+            else:
+                xys = (pxpy[0]-self.h_margin, pxpy[1]),(pxpy[0]+text_length+self.h_margin, xys[1][1])
+                self.draw.rectangle(xys, outline="black", fill=self.fill_color)
         self.draw.text(pxpy, font=title_font, text=text, fill="black")
 
     def draw_text_in_font(self, coordinates: tuple[int, int],
@@ -315,7 +355,7 @@ class ImageCardTransformer:
 
         return lines, widths
 
-    def transform_cards(self, directory_path=None, limit=None):
+    def transform_cards(self, directory_path=None, limit=None, qr_code=True, default_fill_color=None):
         if directory_path is None:
             directory_path = self.cards_directory
         cards_paths = os.listdir(directory_path)
@@ -323,7 +363,7 @@ class ImageCardTransformer:
         date = str(datetime.datetime.now())
         batch_id = mmh3.mmh3_32_digest(date.encode('utf-8')).hex()
         for card_path in cards_paths:
-            self.transform_card(card_path, batch_id)
+            self.transform_card(card_path, batch_id, qr_code, default_fill_color)
             i += 1
             if limit is not None and i >= limit:
                 break
@@ -336,4 +376,4 @@ class ImageCardTransformer:
 
 if __name__ == "__main__":
     ici= ImageCardTransformer()
-    ici.transform_cards(ici.cards_directory)
+    ici.transform_cards(ici.cards_directory, limit=5)
