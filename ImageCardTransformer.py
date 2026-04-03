@@ -116,7 +116,6 @@ class ImageCardTransformer:
         artwork = False
         try:
             artwork_path = self.artworks_directory + card.title + ".png"
-            print(f"ap : {artwork_path}")
             img = Image.open(artwork_path).resize((self.width, self.height))
             self.base.paste(img, (0,0))
             self.draw.rectangle((0,0,self.width-1,self.height-2), outline="black")

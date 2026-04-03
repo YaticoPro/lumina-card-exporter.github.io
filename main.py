@@ -24,6 +24,7 @@ def main():
     parser.add_argument('-delete-images-after-run', '--di', type=bool, default=False ,help="The path of the csv file", action=argparse.BooleanOptionalAction)
     parser.add_argument('-refresh', '--refresh', type=bool, default=False ,help="The path of the csv file", action=argparse.BooleanOptionalAction)
     parser.add_argument('-zip', '--zip', type=bool, default=False ,help="The path of the csv file", action=argparse.BooleanOptionalAction)
+    parser.add_argument('-qr', '--qr', type=bool, default=False ,help="The path of the csv file", action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
 
@@ -51,7 +52,7 @@ def main():
     if args.cp is not None:
         for csv_filepath in args.cp:
             ci.parse(csv_filepath, limit=args.l)
-    ict.transform_cards()
+    ict.transform_cards(qr_code=args.qr)
     pdf_filepath = args.pp if args.pp is not None else defaut_file+".pdf"
     pi.import_from_images_directory(pdf_filepath=pdf_filepath, example=args.test)
 

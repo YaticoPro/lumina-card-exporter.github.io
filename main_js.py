@@ -24,14 +24,11 @@ def log(msg, type="normal"):
 
 async def handle_file(file_input):
     files_list = file_input.files
-    print(f"files : {len(files_list)}, {files_list.item(0).name}")
     if files_list and files_list.length == 1:
-        file_obj = files_list.item(0)
-        user_filename = file_obj.name
-        log(f"📄 Fichier sélectionné : {user_filename}", "success")
-
-        # Lire et écrire (Binaire)
         try:
+            file_obj = files_list.item(0)
+            user_filename = file_obj.name
+            log(f"📄 Fichier sélectionné : {user_filename}", "success")
             # Lecture du contenu binaire
             reader = FileReader.new()
             loop = asyncio.get_event_loop()
@@ -143,13 +140,12 @@ async def lancer_analyse(*args):
         else:
             user_filename = await handle_distant_file(link)
 
-    print(f"artwork files {bool(artwork_file_input.files)}")
+    print(f"artwork files {len(artwork_file_input.files)}")
     if artwork_file_input.files:
         artwork_link = await handle_file(artwork_file_input)
         print(artwork_link, bool(artwork_link))
         if artwork_link:
             with ZipFile(artwork_link, 'r') as zip_file:
-                print(f"nl ? {zip_file.namelist()}")
                 zip_file.extractall(path="card_elements")
             log("Artworks importés")
     print(os.listdir("card_elements"))
