@@ -73,6 +73,7 @@ async def handle_file(file_input):
 
 async def handle_distant_file(link):
     user_filename = "to_export.csv"
+    link = f"https://docs.google.com/spreadsheets/d/{link}/export?format=csv"
     log(f"🌐 Source : Lien distant '{link}'", "success")
     log("⏳ Téléchargement du fichier distant...", "normal")
 
@@ -228,6 +229,8 @@ async def lancer_analyse(*args):
 
             log("✅ Traitement terminé avec succès !")
             log_container.appendChild(link)
+
+            link.click()
         else:
             log("⚠️ Aucun fichier n'a pas été généré.", "error")
 

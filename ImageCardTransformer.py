@@ -110,16 +110,16 @@ class ImageCardTransformer:
             self.fill_color = default_fill_color
         else:
             self.fill_color = self.base.resize((1, 1)).getpixel((0, 0))
-            light_up = 40
+            light_up = 80
             self.fill_color = (min(255,self.fill_color[0]+light_up),min(255,self.fill_color[1]+light_up),min(255,self.fill_color[2]+light_up))
 
-        artwork = False
+        artwork_check = False
         try:
             artwork_path = self.artworks_directory + card.title + ".png"
             img = Image.open(artwork_path).resize((self.width, self.height))
             self.base.paste(img, (0,0))
             self.draw.rectangle((0,0,self.width-1,self.height-2), outline="black")
-            artwork = True
+            artwork_check = True
         except FileNotFoundError:
             pass
 
@@ -130,8 +130,8 @@ class ImageCardTransformer:
         # Identity
         base_pos = xys[1][1] + self.v_margin
         xys = (self.h_margin, base_pos), int_tuple((self.h_limit_margin, base_pos + self.image_height))
-        if not artwork:
-            self.draw.rectangle(xys, fill=self.fill_color)
+        if not artwork_check:
+            self.draw.rectangle(xys, fill=self.fill_color, outline="black")
 
             resize_dim = (xys[1][0]-xys[0][0]-10, xys[1][1]-xys[0][1]-10)
             nb_identities = len(card.identity)
@@ -177,7 +177,7 @@ class ImageCardTransformer:
             self.add_text_in_rectangle(f"{card.attack}  /  {card.defense}", self.title_font_size, xys)
 
         # Cost
-        if artwork:
+        if artwork_check:
             outline = "black"
         else:
             outline = None
